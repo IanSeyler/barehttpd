@@ -17,6 +17,7 @@ void display_ip(u8* ip);
 /* Global defines */
 #define swap16(x) __builtin_bswap16(x)
 #define swap32(x) __builtin_bswap32(x)
+#define NULL ((void *)0)
 #undef ETH_FRAME_LEN
 #define ETH_FRAME_LEN 1518
 #define ETHERTYPE_ARP 0x0806
@@ -130,12 +131,12 @@ const char webpage[] =
 "\t\t<h1>Hello world, from BareMetal!</h1>\n"
 "\t\t<p>This simple webpage is being hosted in a cloud VM running the following:</p>\n"
 "\t\t<ul>\n"
-"\t\t\t<li>12KiB Kernel - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a></li>\n"
-"\t\t\t<li>4KiB IP Stack and webserver</li>\n"
+"\t\t\t<li>Kernel - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - a extremely minimal x86-64 exokernel that acts as a hardware abstraction layer for a cloud VM</li>\n"
+"\t\t\t<li>Application - IP Stack and webserver based on <a href=https://github.com/ReturnInfinity/BareMetal-Examples/tree/main/c/03-hello-world-http>BareMetal-Examples/c/03-hello-world-http</a></li>\n"
 "\t\t</ul>\n"
 "\t</body>\n"
 "</html>\n";
-const char version_string[] = "hello_http v0.9.1 - DO (2025 11 09)\n";
+const char version_string[] = "hello_http v0.9.1 - DO (2025 11 11)\n";
 
 /* Main code */
 int main()
@@ -146,244 +147,252 @@ int main()
 	while(running == 1)
 	{
 		recv_packet_len = b_net_rx((void**)&buffer, INTERFACE);
+
+		if (buffer == NULL || recv_packet_len < sizeof(eth_header)) // Check for valid buffer address and packet length
+		{
+			continue; // Restart to the beginning of the while loop
+		}
+
 		eth_header* rx = (eth_header*)buffer;
 
-		if (recv_packet_len > 0) // Make sure we received a packet
+		b_output(".", 1); // display a dot when there is a packet
+		memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
+		if (swap16(rx->type) == ETHERTYPE_ARP && recv_packet_len > sizeof(arp_packet))
 		{
-			b_output(".", 1); // display a dot when there is a packet
-			memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
-			if (swap16(rx->type) == ETHERTYPE_ARP)
+			b_output("arp_", 4);
+			arp_packet* rx_arp = (arp_packet*)buffer;
+			if (swap16(rx_arp->opcode) == ARP_REQUEST)
 			{
-				//b_output("arp", 3);
-				arp_packet* rx_arp = (arp_packet*)buffer;
-				if (swap16(rx_arp->opcode) == ARP_REQUEST)
+				// Commented out due to no way to detect IP from DO
+				//if (*(u32*)rx_arp->target_ip == *(u32*)src_IP)
+				//{
+				arp_packet* tx_arp = (arp_packet*)tosend;
+				// Ethernet
+				memcpy(tx_arp->ethernet.dest_mac, rx_arp->sender_mac, 6);
+				memcpy(tx_arp->ethernet.src_mac, src_MAC, 6);
+				tx_arp->ethernet.type = swap16(ETHERTYPE_ARP);
+				// ARP
+				tx_arp->hardware_type = swap16(1); // Ethernet
+				tx_arp->protocol = swap16(ETHERTYPE_IPV4);
+				tx_arp->hardware_size = 6;
+				tx_arp->protocol_size = 4;
+				tx_arp->opcode = swap16(ARP_REPLY);
+				memcpy(tx_arp->sender_mac, src_MAC, 6);
+				memcpy(tx_arp->sender_ip, rx_arp->target_ip, 4);
+				memcpy(tx_arp->target_mac, rx_arp->sender_mac, 6);
+				memcpy(tx_arp->target_ip, rx_arp->sender_ip, 4);
+				// Send the reply
+				b_net_tx(tosend, 42, INTERFACE);
+				// Commented out due to no way to detect IP from DO
+				//}
+			}
+			else if (buffer[21] == ARP_REPLY)
+			{
+				// TODO - Responses to our requests
+			}
+		}
+		else if (swap16(rx->type) == ETHERTYPE_IPV4 && recv_packet_len > sizeof(ipv4_packet))
+		{
+			b_output("ipv4_", 5);
+			ipv4_packet* rx_ipv4 = (ipv4_packet*)buffer;
+			if(rx_ipv4->protocol == PROTOCOL_IP_ICMP)
+			{
+				b_output("icmp_", 5);
+				icmp_packet* rx_icmp = (icmp_packet*)buffer;
+				if(rx_icmp->type == ICMP_ECHO_REQUEST)
 				{
 					// Commented out due to no way to detect IP from DO
-					//if (*(u32*)rx_arp->target_ip == *(u32*)src_IP)
+					//if (*(u32*)rx_icmp->ipv4.dest_ip == *(u32*)src_IP)
 					//{
-						arp_packet* tx_arp = (arp_packet*)tosend;
-						// Ethernet
-						memcpy(tx_arp->ethernet.dest_mac, rx_arp->sender_mac, 6);
-						memcpy(tx_arp->ethernet.src_mac, src_MAC, 6);
-						tx_arp->ethernet.type = swap16(ETHERTYPE_ARP);
-						// ARP
-						tx_arp->hardware_type = swap16(1); // Ethernet
-						tx_arp->protocol = swap16(ETHERTYPE_IPV4);
-						tx_arp->hardware_size = 6;
-						tx_arp->protocol_size = 4;
-						tx_arp->opcode = swap16(ARP_REPLY);
-						memcpy(tx_arp->sender_mac, src_MAC, 6);
-						memcpy(tx_arp->sender_ip, rx_arp->target_ip, 4);
-						memcpy(tx_arp->target_mac, rx_arp->sender_mac, 6);
-						memcpy(tx_arp->target_ip, rx_arp->sender_ip, 4);
-						// Send the reply
-						b_net_tx(tosend, 42, INTERFACE);
+					//b_output(ping, (unsigned long)strlen(ping));
+					// Reply to the ping request
+					icmp_packet* tx_icmp = (icmp_packet*)tosend;
+					// Ethernet
+					memcpy(tx_icmp->ipv4.ethernet.dest_mac, rx_icmp->ipv4.ethernet.src_mac, 6);
+					memcpy(tx_icmp->ipv4.ethernet.src_mac, src_MAC, 6);
+					tx_icmp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+					// IPv4
+					tx_icmp->ipv4.version = rx_icmp->ipv4.version;
+					tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
+					tx_icmp->ipv4.total_length = rx_icmp->ipv4.total_length;
+					tx_icmp->ipv4.id = rx_icmp->ipv4.id;
+					tx_icmp->ipv4.flags = rx_icmp->ipv4.flags;
+					tx_icmp->ipv4.ttl = rx_icmp->ipv4.ttl;
+					tx_icmp->ipv4.protocol = rx_icmp->ipv4.protocol;
+					tx_icmp->ipv4.checksum = rx_icmp->ipv4.checksum; // No need to recalculate checksum
+					memcpy(tx_icmp->ipv4.src_ip, rx_icmp->ipv4.dest_ip, 4);
+					memcpy(tx_icmp->ipv4.dest_ip, rx_icmp->ipv4.src_ip, 4);
+					// ICMP
+					tx_icmp->type = ICMP_ECHO_REPLY;
+					tx_icmp->code = rx_icmp->code;
+					tx_icmp->checksum = 0;
+					tx_icmp->id = rx_icmp->id;
+					tx_icmp->sequence = rx_icmp->sequence;
+					tx_icmp->timestamp = rx_icmp->timestamp;
+					memcpy (tx_icmp->data, rx_icmp->data, (swap16(rx_icmp->ipv4.total_length)-20-16)); // IP length - IPv4 header - ICMP header
+					tx_icmp->checksum = checksum(&tosend[34], recv_packet_len-14-20); // Frame length - MAC header - IPv4 header
+					// Send the reply
+					b_net_tx(tosend, recv_packet_len, INTERFACE);
 					// Commented out due to no way to detect IP from DO
 					//}
 				}
-				else if (buffer[21] == ARP_REPLY)
+				else if (rx_icmp->type == ICMP_ECHO_REPLY)
 				{
-					// TODO - Responses to our requests
-				}
-			}
-			else if (swap16(rx->type) == ETHERTYPE_IPV4)
-			{
-				//b_output(ipv4, (unsigned long)strlen(ipv4));
-				ipv4_packet* rx_ipv4 = (ipv4_packet*)buffer;
-				if(rx_ipv4->protocol == PROTOCOL_IP_ICMP)
-				{
-					icmp_packet* rx_icmp = (icmp_packet*)buffer;
-					if(rx_icmp->type == ICMP_ECHO_REQUEST)
-					{
-						// Commented out due to no way to detect IP from DO
-						//if (*(u32*)rx_icmp->ipv4.dest_ip == *(u32*)src_IP)
-						//{
-							//b_output(ping, (unsigned long)strlen(ping));
-							// Reply to the ping request
-							icmp_packet* tx_icmp = (icmp_packet*)tosend;
-							// Ethernet
-							memcpy(tx_icmp->ipv4.ethernet.dest_mac, rx_icmp->ipv4.ethernet.src_mac, 6);
-							memcpy(tx_icmp->ipv4.ethernet.src_mac, src_MAC, 6);
-							tx_icmp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
-							// IPv4
-							tx_icmp->ipv4.version = rx_icmp->ipv4.version;
-							tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
-							tx_icmp->ipv4.total_length = rx_icmp->ipv4.total_length;
-							tx_icmp->ipv4.id = rx_icmp->ipv4.id;
-							tx_icmp->ipv4.flags = rx_icmp->ipv4.flags;
-							tx_icmp->ipv4.ttl = rx_icmp->ipv4.ttl;
-							tx_icmp->ipv4.protocol = rx_icmp->ipv4.protocol;
-							tx_icmp->ipv4.checksum = rx_icmp->ipv4.checksum; // No need to recalculate checksum
-							memcpy(tx_icmp->ipv4.src_ip, rx_icmp->ipv4.dest_ip, 4);
-							memcpy(tx_icmp->ipv4.dest_ip, rx_icmp->ipv4.src_ip, 4);
-							// ICMP
-							tx_icmp->type = ICMP_ECHO_REPLY;
-							tx_icmp->code = rx_icmp->code;
-							tx_icmp->checksum = 0;
-							tx_icmp->id = rx_icmp->id;
-							tx_icmp->sequence = rx_icmp->sequence;
-							tx_icmp->timestamp = rx_icmp->timestamp;
-							memcpy (tx_icmp->data, rx_icmp->data, (swap16(rx_icmp->ipv4.total_length)-20-16)); // IP length - IPv4 header - ICMP header
-							tx_icmp->checksum = checksum(&tosend[34], recv_packet_len-14-20); // Frame length - MAC header - IPv4 header
-							// Send the reply
-							b_net_tx(tosend, recv_packet_len, INTERFACE);
-						// Commented out due to no way to detect IP from DO
-						//}
-					}
-					else if (rx_icmp->type == ICMP_ECHO_REPLY)
-					{
-						// Ignore these for now.
-					}
-					else
-					{
-						// Do nothing
-					}
-				}
-				else if(rx_ipv4->protocol == PROTOCOL_IP_TCP)
-				{
-					tcp_packet* rx_tcp = (tcp_packet*)buffer;
-					// Commented out due to no way to detect IP from DO
-					// && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP
-					if (rx_tcp->flags == TCP_SYN && rx_tcp->dest_port == swap16(80))
-					{
-						tcp_packet* tx_tcp = (tcp_packet*)tosend;
-						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
-						// Ethernet
-						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
-						// IPv4
-						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
-						tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
-						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-						tx_tcp->ipv4.checksum = 0;
-						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
-						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-						// TCP
-						tx_tcp->src_port = rx_tcp->dest_port;
-						tx_tcp->dest_port = rx_tcp->src_port;
-						tx_tcp->seqnum = rx_tcp->seqnum;
-						tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+1);
-						tx_tcp->data_offset = rx_tcp->data_offset;
-						tx_tcp->flags = TCP_SYN|TCP_ACK;
-						tx_tcp->window = rx_tcp->window;
-						tx_tcp->checksum = 0;
-						tx_tcp->urg_pointer = rx_tcp->urg_pointer;
-						tx_tcp->checksum = checksum_tcp(&tosend[34], recv_packet_len-34, PROTOCOL_IP_TCP, recv_packet_len-34);
-						// Send the reply
-						b_net_tx(tosend, recv_packet_len, INTERFACE);
-					}
-					else if (rx_tcp->flags == TCP_ACK)
-					{
-						// Ignore these for now.
-					}
-					// Commented out due to no way to detect IP from DO
-					// && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP
-					else if (rx_tcp->flags == (TCP_PSH|TCP_ACK) && rx_tcp->dest_port == swap16(80))
-					{
-						tcp_packet* tx_tcp = (tcp_packet*)tosend;
-						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
-						// Ethernet
-						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
-						// IPv4
-						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
-						tx_tcp->ipv4.total_length = swap16(52);
-						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-						tx_tcp->ipv4.checksum = 0;
-						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
-						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-						// TCP
-						tx_tcp->src_port = rx_tcp->dest_port;
-						tx_tcp->dest_port = rx_tcp->src_port;
-						tx_tcp->seqnum = rx_tcp->seqnum;
-						tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+(recv_packet_len-14-20-32)); // Add the bytes received
-						tx_tcp->data_offset = rx_tcp->data_offset;
-						tx_tcp->flags = TCP_ACK;
-						tx_tcp->window = rx_tcp->window;
-						tx_tcp->checksum = 0;
-						tx_tcp->urg_pointer = rx_tcp->urg_pointer;
-						tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
-						// Send the reply
-						b_net_tx(tosend, 66, INTERFACE);
-						// Send the webpage
-						tx_tcp->ipv4.total_length = swap16(52+strlen(webpage));
-						tx_tcp->ipv4.checksum = 0;
-						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-						tx_tcp->flags = TCP_PSH|TCP_ACK;
-						tx_tcp->checksum = 0;
-						memcpy((char*)tosend+66, (char*)webpage, strlen(webpage));
-						tx_tcp->checksum = checksum_tcp(&tosend[34], 32+strlen(webpage), PROTOCOL_IP_TCP, 32+strlen(webpage));
-						b_net_tx(tosend, 66+strlen(webpage), INTERFACE);
-						// Disconnect the client
-						tx_tcp->ipv4.total_length = swap16(52);
-						tx_tcp->ipv4.checksum = 0;
-						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-						tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+strlen(webpage));
-						tx_tcp->flags = TCP_FIN|TCP_ACK;
-						tx_tcp->checksum = 0;
-						tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
-						b_net_tx(tosend, 66, INTERFACE);
-					}
-					else if (rx_tcp->flags == (TCP_FIN|TCP_ACK))
-					{
-						tcp_packet* tx_tcp = (tcp_packet*)tosend;
-						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
-						// Ethernet
-						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
-						// IPv4
-						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
-						tx_tcp->ipv4.total_length = swap16(52);
-						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-						tx_tcp->ipv4.checksum = 0;
-						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
-						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-						// TCP
-						tx_tcp->src_port = rx_tcp->dest_port;
-						tx_tcp->dest_port = rx_tcp->src_port;
-						tx_tcp->seqnum = rx_tcp->acknum;
-						tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+1);
-						tx_tcp->data_offset = rx_tcp->data_offset;
-						tx_tcp->flags = TCP_ACK;
-						tx_tcp->window = rx_tcp->window;
-						tx_tcp->checksum = 0;
-						tx_tcp->urg_pointer = rx_tcp->urg_pointer;
-						tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
-						// Send the reply
-						b_net_tx(tosend, 66, INTERFACE);
-					}
-				}
-				else if (rx_ipv4->protocol == PROTOCOL_IP_UDP)
-				{
-					// TODO - UDP
+					// Ignore these for now.
 				}
 				else
 				{
 					// Do nothing
 				}
 			}
-			else if (swap16(rx->type) == ETHERTYPE_IPV6)
+			else if(rx_ipv4->protocol == PROTOCOL_IP_TCP)
 			{
-				// TODO - IPv6
+				b_output("tcp_", 4);
+				tcp_packet* rx_tcp = (tcp_packet*)buffer;
+				// Commented out due to no way to detect IP from DO
+				// && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP
+				if (rx_tcp->flags == TCP_SYN && rx_tcp->dest_port == swap16(80))
+				{
+					tcp_packet* tx_tcp = (tcp_packet*)tosend;
+					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
+					// Ethernet
+					memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
+					memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
+					tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+					// IPv4
+					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
+					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+					tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
+					tx_tcp->ipv4.id = rx_tcp->ipv4.id;
+					tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
+					tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
+					tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
+					tx_tcp->ipv4.checksum = 0;
+					memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
+					memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+					// TCP
+					tx_tcp->src_port = rx_tcp->dest_port;
+					tx_tcp->dest_port = rx_tcp->src_port;
+					tx_tcp->seqnum = rx_tcp->seqnum;
+					tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+1);
+					tx_tcp->data_offset = rx_tcp->data_offset;
+					tx_tcp->flags = TCP_SYN|TCP_ACK;
+					tx_tcp->window = rx_tcp->window;
+					tx_tcp->checksum = 0;
+					tx_tcp->urg_pointer = rx_tcp->urg_pointer;
+					tx_tcp->checksum = checksum_tcp(&tosend[34], recv_packet_len-34, PROTOCOL_IP_TCP, recv_packet_len-34);
+					// Send the reply
+					b_net_tx(tosend, recv_packet_len, INTERFACE);
+				}
+				else if (rx_tcp->flags == TCP_ACK)
+				{
+					// Ignore these for now.
+				}
+				// Commented out due to no way to detect IP from DO
+				// && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP
+				else if (rx_tcp->flags == (TCP_PSH|TCP_ACK) && rx_tcp->dest_port == swap16(80))
+				{
+					tcp_packet* tx_tcp = (tcp_packet*)tosend;
+					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
+					// Ethernet
+					memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
+					memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
+					tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+					// IPv4
+					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
+					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+					tx_tcp->ipv4.total_length = swap16(52);
+					tx_tcp->ipv4.id = rx_tcp->ipv4.id;
+					tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
+					tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
+					tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
+					tx_tcp->ipv4.checksum = 0;
+					memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
+					memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+					// TCP
+					tx_tcp->src_port = rx_tcp->dest_port;
+					tx_tcp->dest_port = rx_tcp->src_port;
+					tx_tcp->seqnum = rx_tcp->seqnum;
+					tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+(recv_packet_len-14-20-32)); // Add the bytes received
+					tx_tcp->data_offset = rx_tcp->data_offset;
+					tx_tcp->flags = TCP_ACK;
+					tx_tcp->window = rx_tcp->window;
+					tx_tcp->checksum = 0;
+					tx_tcp->urg_pointer = rx_tcp->urg_pointer;
+					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
+					// Send the reply
+					b_net_tx(tosend, 66, INTERFACE);
+					// Send the webpage
+					tx_tcp->ipv4.total_length = swap16(52+strlen(webpage));
+					tx_tcp->ipv4.checksum = 0;
+					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+					tx_tcp->flags = TCP_PSH|TCP_ACK;
+					tx_tcp->checksum = 0;
+					memcpy((char*)tosend+66, (char*)webpage, strlen(webpage));
+					tx_tcp->checksum = checksum_tcp(&tosend[34], 32+strlen(webpage), PROTOCOL_IP_TCP, 32+strlen(webpage));
+					b_net_tx(tosend, 66+strlen(webpage), INTERFACE);
+					// Disconnect the client
+					tx_tcp->ipv4.total_length = swap16(52);
+					tx_tcp->ipv4.checksum = 0;
+					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+					tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+strlen(webpage));
+					tx_tcp->flags = TCP_FIN|TCP_ACK;
+					tx_tcp->checksum = 0;
+					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
+					b_net_tx(tosend, 66, INTERFACE);
+				}
+				else if (rx_tcp->flags == (TCP_FIN|TCP_ACK))
+				{
+					tcp_packet* tx_tcp = (tcp_packet*)tosend;
+					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
+					// Ethernet
+					memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
+					memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
+					tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+					// IPv4
+					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
+					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+					tx_tcp->ipv4.total_length = swap16(52);
+					tx_tcp->ipv4.id = rx_tcp->ipv4.id;
+					tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
+					tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
+					tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
+					tx_tcp->ipv4.checksum = 0;
+					memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
+					memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+					// TCP
+					tx_tcp->src_port = rx_tcp->dest_port;
+					tx_tcp->dest_port = rx_tcp->src_port;
+					tx_tcp->seqnum = rx_tcp->acknum;
+					tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+1);
+					tx_tcp->data_offset = rx_tcp->data_offset;
+					tx_tcp->flags = TCP_ACK;
+					tx_tcp->window = rx_tcp->window;
+					tx_tcp->checksum = 0;
+					tx_tcp->urg_pointer = rx_tcp->urg_pointer;
+					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
+					// Send the reply
+					b_net_tx(tosend, 66, INTERFACE);
+				}
 			}
+			else if (rx_ipv4->protocol == PROTOCOL_IP_UDP)
+			{
+				// TODO - UDP
+				b_output("udp_", 4);
+			}
+			else
+			{
+				// Do nothing
+				b_output("?_", 2);
+			}
+		}
+		else if (swap16(rx->type) == ETHERTYPE_IPV6)
+		{
+			// TODO - IPv6
+			b_output("ipv6_", 5);
 		}
 	}
 
@@ -665,6 +674,7 @@ int strlen(const char* s)
 }
 
 
+// Convert a byte value to a string
 char* b_to_s(char* buffer, unsigned char byte)
 {
 	int i = 0;
