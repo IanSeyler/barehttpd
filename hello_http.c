@@ -154,12 +154,12 @@ int main()
 		}
 
 		eth_header* rx = (eth_header*)buffer;
+		b_output(" ", 1);
 
-		b_output(".", 1); // display a dot when there is a packet
 		memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
 		if (swap16(rx->type) == ETHERTYPE_ARP && recv_packet_len > sizeof(arp_packet))
 		{
-			b_output("arp_", 4);
+			b_output("arp", 3);
 			arp_packet* rx_arp = (arp_packet*)buffer;
 			if (swap16(rx_arp->opcode) == ARP_REQUEST)
 			{
@@ -197,7 +197,7 @@ int main()
 			ipv4_packet* rx_ipv4 = (ipv4_packet*)buffer;
 			if(rx_ipv4->protocol == PROTOCOL_IP_ICMP)
 			{
-				b_output("icmp_", 5);
+				b_output("icmp", 4);
 				icmp_packet* rx_icmp = (icmp_packet*)buffer;
 				if(rx_icmp->type == ICMP_ECHO_REQUEST)
 				{
@@ -247,7 +247,7 @@ int main()
 			}
 			else if(rx_ipv4->protocol == PROTOCOL_IP_TCP)
 			{
-				b_output("tcp_", 4);
+				b_output("tcp", 3);
 				tcp_packet* rx_tcp = (tcp_packet*)buffer;
 				// Commented out due to no way to detect IP from DO
 				// && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP
@@ -381,18 +381,18 @@ int main()
 			else if (rx_ipv4->protocol == PROTOCOL_IP_UDP)
 			{
 				// TODO - UDP
-				b_output("udp_", 4);
+				b_output("udp", 3);
 			}
 			else
 			{
 				// Do nothing
-				b_output("?_", 2);
+				b_output("?", 1);
 			}
 		}
 		else if (swap16(rx->type) == ETHERTYPE_IPV6)
 		{
 			// TODO - IPv6
-			b_output("ipv6_", 5);
+			b_output("ipv6", 4);
 		}
 	}
 
