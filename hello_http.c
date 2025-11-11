@@ -204,7 +204,6 @@ int main()
 					// Commented out due to no way to detect IP from DO
 					//if (*(u32*)rx_icmp->ipv4.dest_ip == *(u32*)src_IP)
 					//{
-					//b_output(ping, (unsigned long)strlen(ping));
 					// Reply to the ping request
 					icmp_packet* tx_icmp = (icmp_packet*)tosend;
 					// Ethernet
@@ -214,6 +213,8 @@ int main()
 					// IPv4
 					tx_icmp->ipv4.version = rx_icmp->ipv4.version;
 					tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
+					if (swap16(rx_icmp->ipv4.total_length) > 1000)
+						continue;
 					tx_icmp->ipv4.total_length = rx_icmp->ipv4.total_length;
 					tx_icmp->ipv4.id = rx_icmp->ipv4.id;
 					tx_icmp->ipv4.flags = rx_icmp->ipv4.flags;
@@ -233,6 +234,7 @@ int main()
 					tx_icmp->checksum = checksum(&tosend[34], recv_packet_len-14-20); // Frame length - MAC header - IPv4 header
 					// Send the reply
 					b_net_tx(tosend, recv_packet_len, INTERFACE);
+					b_output("!", 1); // Request was responded to
 					// Commented out due to no way to detect IP from DO
 					//}
 				}
