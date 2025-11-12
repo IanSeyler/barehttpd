@@ -116,7 +116,7 @@ typedef struct tcp_packet {
 	u16 checksum;
 	u16 urg_pointer;
 	// Options and data
-//	u8 data[2]; // Set to 2 so can be used as pointer
+	u8 data[2]; // Set to 2 so can be used as pointer
 } tcp_packet;
 
 /* Default HTTP page with HTTP headers */
@@ -134,12 +134,26 @@ const char webpage[] =
 "\t\t<h1>Hello world, from BareMetal!</h1>\n"
 "\t\t<p>This simple webpage is being hosted in a cloud VM running the following:</p>\n"
 "\t\t<ul>\n"
-"\t\t\t<li>Kernel - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - a extremely minimal x86-64 exokernel that acts as a hardware abstraction layer for a cloud VM. It is written in x86-64 Assembly and is ~12KiB in size</li>\n"
-"\t\t\t<li>Application - IP Stack and webserver in C based on <a href=https://github.com/ReturnInfinity/BareMetal-Examples/tree/main/c/03-hello-world-http>BareMetal-Examples/c/03-hello-world-http</a></li>\n"
+"\t\t\t<li><b>Kernel</b> - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - a extremely minimal x86-64 exokernel that acts as a hardware abstraction layer for a cloud VM. It is written in x86-64 Assembly, is 12KiB in size, and uses 4MiB of RAM</li>\n"
+"\t\t\t<li><b>Application</b> - IP Stack and webserver in C based on <a href=https://github.com/ReturnInfinity/BareMetal-Examples/tree/main/c/03-hello-world-http>BareMetal-Examples/c/03-hello-world-http</a></li>\n"
 "\t\t</ul>\n"
 "\t</body>\n"
 "</html>\n";
-const char version_string[] = "hello_http v0.9.1 - DO (2025 11 11)\n";
+const char webpage404[] =
+"HTTP/1.0 404 Not Found\n"
+"Server: BareMetal\n"
+"Content-type: text/html\n"
+"\n"
+"<!DOCTYPE html>\n"
+"<html>\n"
+"\t<head>\n"
+"\t\t<title>404</title>\n"
+"\t</head>\n"
+"\t<body>\n"
+"\t\t<p>404 - Not found</p>\n"
+"\t</body>\n"
+"</html>\n";
+const char version_string[] = "hello_http v0.9.1 - DO (2025 11 12)\n";
 
 /* Main code */
 int main()
