@@ -249,7 +249,7 @@ int main()
 			}
 			else if(rx_ipv4->protocol == PROTOCOL_IP_TCP)
 			{
-				b_output("tcp", 3);
+				// b_output("tcp", 3);
 				tcp_packet* rx_tcp = (tcp_packet*)buffer;
 				if (rx_tcp->flags & TCP_SYN && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP && rx_tcp->dest_port == swap16(80))
 				{
@@ -322,6 +322,10 @@ int main()
 					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
 					// Send the reply
 					b_net_tx(tosend, 66, INTERFACE);
+					// Check for what was requested
+					// Does it contain just the string "GET / " or GET /INDEX?
+					// If so, send the page
+					// Otherwise 404
 					// Send the webpage
 					tx_tcp->ipv4.total_length = swap16(52+strlen(webpage));
 					tx_tcp->ipv4.checksum = 0;
