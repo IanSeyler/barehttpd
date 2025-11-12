@@ -131,8 +131,8 @@ const char webpage[] =
 "\t\t<h1>Hello world, from BareMetal!</h1>\n"
 "\t\t<p>This simple webpage is being hosted in a cloud VM running the following:</p>\n"
 "\t\t<ul>\n"
-"\t\t\t<li>Kernel - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - a extremely minimal x86-64 exokernel that acts as a hardware abstraction layer for a cloud VM</li>\n"
-"\t\t\t<li>Application - IP Stack and webserver based on <a href=https://github.com/ReturnInfinity/BareMetal-Examples/tree/main/c/03-hello-world-http>BareMetal-Examples/c/03-hello-world-http</a></li>\n"
+"\t\t\t<li>Kernel - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - a extremely minimal x86-64 exokernel that acts as a hardware abstraction layer for a cloud VM. It is written in x86-64 Assembly and is ~12KiB in size</li>\n"
+"\t\t\t<li>Application - IP Stack and webserver in C based on <a href=https://github.com/ReturnInfinity/BareMetal-Examples/tree/main/c/03-hello-world-http>BareMetal-Examples/c/03-hello-world-http</a></li>\n"
 "\t\t</ul>\n"
 "\t</body>\n"
 "</html>\n";
@@ -154,37 +154,36 @@ int main()
 		}
 
 		eth_header* rx = (eth_header*)buffer;
-		b_output(" ", 1);
+		//b_output(" ", 1);
+		b_output(".", 1);
 
 		memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
 		if (swap16(rx->type) == ETHERTYPE_ARP && recv_packet_len > sizeof(arp_packet))
 		{
-			b_output("arp", 3);
+			// b_output("arp", 3);
 			arp_packet* rx_arp = (arp_packet*)buffer;
 			if (swap16(rx_arp->opcode) == ARP_REQUEST)
 			{
-				// Commented out due to no way to detect IP from DO
-				//if (*(u32*)rx_arp->target_ip == *(u32*)src_IP)
-				//{
-				arp_packet* tx_arp = (arp_packet*)tosend;
-				// Ethernet
-				memcpy(tx_arp->ethernet.dest_mac, rx_arp->sender_mac, 6);
-				memcpy(tx_arp->ethernet.src_mac, src_MAC, 6);
-				tx_arp->ethernet.type = swap16(ETHERTYPE_ARP);
-				// ARP
-				tx_arp->hardware_type = swap16(1); // Ethernet
-				tx_arp->protocol = swap16(ETHERTYPE_IPV4);
-				tx_arp->hardware_size = 6;
-				tx_arp->protocol_size = 4;
-				tx_arp->opcode = swap16(ARP_REPLY);
-				memcpy(tx_arp->sender_mac, src_MAC, 6);
-				memcpy(tx_arp->sender_ip, rx_arp->target_ip, 4);
-				memcpy(tx_arp->target_mac, rx_arp->sender_mac, 6);
-				memcpy(tx_arp->target_ip, rx_arp->sender_ip, 4);
-				// Send the reply
-				b_net_tx(tosend, 42, INTERFACE);
-				// Commented out due to no way to detect IP from DO
-				//}
+				if (*(u32*)rx_arp->target_ip == *(u32*)src_IP) // Verify the request is for our IP
+				{
+					arp_packet* tx_arp = (arp_packet*)tosend;
+					// Ethernet
+					memcpy(tx_arp->ethernet.dest_mac, rx_arp->sender_mac, 6);
+					memcpy(tx_arp->ethernet.src_mac, src_MAC, 6);
+					tx_arp->ethernet.type = swap16(ETHERTYPE_ARP);
+					// ARP
+					tx_arp->hardware_type = swap16(1); // Ethernet
+					tx_arp->protocol = swap16(ETHERTYPE_IPV4);
+					tx_arp->hardware_size = 6;
+					tx_arp->protocol_size = 4;
+					tx_arp->opcode = swap16(ARP_REPLY);
+					memcpy(tx_arp->sender_mac, src_MAC, 6);
+					memcpy(tx_arp->sender_ip, rx_arp->target_ip, 4);
+					memcpy(tx_arp->target_mac, rx_arp->sender_mac, 6);
+					memcpy(tx_arp->target_ip, rx_arp->sender_ip, 4);
+					// Send the reply
+					b_net_tx(tosend, 42, INTERFACE);
+				}
 			}
 			else if (buffer[21] == ARP_REPLY)
 			{
@@ -193,50 +192,48 @@ int main()
 		}
 		else if (swap16(rx->type) == ETHERTYPE_IPV4 && recv_packet_len > sizeof(ipv4_packet))
 		{
-			b_output("ipv4_", 5);
+			// b_output("ipv4_", 5);
 			ipv4_packet* rx_ipv4 = (ipv4_packet*)buffer;
 			if(rx_ipv4->protocol == PROTOCOL_IP_ICMP)
 			{
-				b_output("icmp", 4);
+				// b_output("icmp", 4);
 				icmp_packet* rx_icmp = (icmp_packet*)buffer;
 				if(rx_icmp->type == ICMP_ECHO_REQUEST)
 				{
-					// Commented out due to no way to detect IP from DO
-					//if (*(u32*)rx_icmp->ipv4.dest_ip == *(u32*)src_IP)
-					//{
-					// Reply to the ping request
-					icmp_packet* tx_icmp = (icmp_packet*)tosend;
-					// Ethernet
-					memcpy(tx_icmp->ipv4.ethernet.dest_mac, rx_icmp->ipv4.ethernet.src_mac, 6);
-					memcpy(tx_icmp->ipv4.ethernet.src_mac, src_MAC, 6);
-					tx_icmp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
-					// IPv4
-					tx_icmp->ipv4.version = rx_icmp->ipv4.version;
-					tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
-					if (swap16(rx_icmp->ipv4.total_length) > 1000)
-						continue;
-					tx_icmp->ipv4.total_length = rx_icmp->ipv4.total_length;
-					tx_icmp->ipv4.id = rx_icmp->ipv4.id;
-					tx_icmp->ipv4.flags = rx_icmp->ipv4.flags;
-					tx_icmp->ipv4.ttl = rx_icmp->ipv4.ttl;
-					tx_icmp->ipv4.protocol = rx_icmp->ipv4.protocol;
-					tx_icmp->ipv4.checksum = rx_icmp->ipv4.checksum; // No need to recalculate checksum
-					memcpy(tx_icmp->ipv4.src_ip, rx_icmp->ipv4.dest_ip, 4);
-					memcpy(tx_icmp->ipv4.dest_ip, rx_icmp->ipv4.src_ip, 4);
-					// ICMP
-					tx_icmp->type = ICMP_ECHO_REPLY;
-					tx_icmp->code = rx_icmp->code;
-					tx_icmp->checksum = 0;
-					tx_icmp->id = rx_icmp->id;
-					tx_icmp->sequence = rx_icmp->sequence;
-					tx_icmp->timestamp = rx_icmp->timestamp;
-					memcpy (tx_icmp->data, rx_icmp->data, (swap16(rx_icmp->ipv4.total_length)-20-16)); // IP length - IPv4 header - ICMP header
-					tx_icmp->checksum = checksum(&tosend[34], recv_packet_len-14-20); // Frame length - MAC header - IPv4 header
-					// Send the reply
-					b_net_tx(tosend, recv_packet_len, INTERFACE);
-					b_output("!", 1); // Request was responded to
-					// Commented out due to no way to detect IP from DO
-					//}
+					if (*(u32*)rx_icmp->ipv4.dest_ip == *(u32*)src_IP)
+					{
+						// Reply to the ping request
+						icmp_packet* tx_icmp = (icmp_packet*)tosend;
+						// Ethernet
+						memcpy(tx_icmp->ipv4.ethernet.dest_mac, rx_icmp->ipv4.ethernet.src_mac, 6);
+						memcpy(tx_icmp->ipv4.ethernet.src_mac, src_MAC, 6);
+						tx_icmp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						// IPv4
+						tx_icmp->ipv4.version = rx_icmp->ipv4.version;
+						tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
+						if (swap16(rx_icmp->ipv4.total_length) > 1400) // Ignore ICMP larger than this
+							continue;
+						tx_icmp->ipv4.total_length = rx_icmp->ipv4.total_length;
+						tx_icmp->ipv4.id = rx_icmp->ipv4.id;
+						tx_icmp->ipv4.flags = rx_icmp->ipv4.flags;
+						tx_icmp->ipv4.ttl = rx_icmp->ipv4.ttl;
+						tx_icmp->ipv4.protocol = rx_icmp->ipv4.protocol;
+						tx_icmp->ipv4.checksum = rx_icmp->ipv4.checksum; // No need to recalculate checksum
+						memcpy(tx_icmp->ipv4.src_ip, rx_icmp->ipv4.dest_ip, 4);
+						memcpy(tx_icmp->ipv4.dest_ip, rx_icmp->ipv4.src_ip, 4);
+						// ICMP
+						tx_icmp->type = ICMP_ECHO_REPLY;
+						tx_icmp->code = rx_icmp->code;
+						tx_icmp->checksum = 0;
+						tx_icmp->id = rx_icmp->id;
+						tx_icmp->sequence = rx_icmp->sequence;
+						tx_icmp->timestamp = rx_icmp->timestamp;
+						memcpy (tx_icmp->data, rx_icmp->data, (swap16(rx_icmp->ipv4.total_length)-20-16)); // IP length - IPv4 header - ICMP header
+						tx_icmp->checksum = checksum(&tosend[34], recv_packet_len-14-20); // Frame length - MAC header - IPv4 header
+						// Send the reply
+						b_net_tx(tosend, recv_packet_len, INTERFACE);
+						// b_output("!", 1); // Request was responded to
+					}
 				}
 				else if (rx_icmp->type == ICMP_ECHO_REPLY)
 				{
@@ -251,9 +248,7 @@ int main()
 			{
 				b_output("tcp", 3);
 				tcp_packet* rx_tcp = (tcp_packet*)buffer;
-				// Commented out due to no way to detect IP from DO
-				// && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP
-				if (rx_tcp->flags == TCP_SYN && rx_tcp->dest_port == swap16(80))
+				if (rx_tcp->flags == TCP_SYN && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP && rx_tcp->dest_port == swap16(80))
 				{
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
@@ -291,9 +286,7 @@ int main()
 				{
 					// Ignore these for now.
 				}
-				// Commented out due to no way to detect IP from DO
-				// && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP
-				else if (rx_tcp->flags == (TCP_PSH|TCP_ACK) && rx_tcp->dest_port == swap16(80))
+				else if (rx_tcp->flags == (TCP_PSH|TCP_ACK) && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP && rx_tcp->dest_port == swap16(80))
 				{
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
@@ -383,18 +376,18 @@ int main()
 			else if (rx_ipv4->protocol == PROTOCOL_IP_UDP)
 			{
 				// TODO - UDP
-				b_output("udp", 3);
+				// b_output("udp", 3);
 			}
 			else
 			{
-				// Do nothing
-				b_output("?", 1);
+				// Do nothing (some other protocol)
+				// b_output("?", 1);
 			}
 		}
 		else if (swap16(rx->type) == ETHERTYPE_IPV6)
 		{
 			// TODO - IPv6
-			b_output("ipv6", 4);
+			// b_output("ipv6", 4);
 		}
 	}
 
