@@ -30,6 +30,9 @@ void display_ip(u8* ip);
 #define PROTOCOL_IP_UDP 11
 #define ICMP_ECHO_REPLY 0
 #define ICMP_ECHO_REQUEST 8
+#define TCP_CWR 128
+#define TCP_ECN 64
+#define TCP_URG 32
 #define TCP_ACK 16
 #define TCP_PSH 8
 #define TCP_RST 4
@@ -248,7 +251,7 @@ int main()
 			{
 				b_output("tcp", 3);
 				tcp_packet* rx_tcp = (tcp_packet*)buffer;
-				if (rx_tcp->flags == TCP_SYN && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP && rx_tcp->dest_port == swap16(80))
+				if (rx_tcp->flags & TCP_SYN && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP && rx_tcp->dest_port == swap16(80))
 				{
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
