@@ -153,7 +153,7 @@ const char webpage404[] =
 "\t\t<p>404 - Not found</p>\n"
 "\t</body>\n"
 "</html>\n";
-const char version_string[] = "hello_http v0.9.1 - DO (2025 11 12)\n";
+const char version_string[] = "hello_http v0.9.1 - DO (2025 11 13)\n";
 
 /* Main code */
 int main()
@@ -171,13 +171,18 @@ int main()
 		}
 
 		eth_header* rx = (eth_header*)buffer;
-		// b_output(" ", 1);
+		#ifdef DEBUG
+		b_output(" ", 1);
+		#else
 		b_output(".", 1);
+		#endif
 
 		memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
 		if (swap16(rx->type) == ETHERTYPE_ARP && recv_packet_len > sizeof(arp_packet))
 		{
-			// b_output("arp", 3);
+			#ifdef DEBUG
+			b_output("arp", 3);
+			#endif
 			arp_packet* rx_arp = (arp_packet*)buffer;
 			if (swap16(rx_arp->opcode) == ARP_REQUEST)
 			{
@@ -200,7 +205,9 @@ int main()
 					memcpy(tx_arp->target_ip, rx_arp->sender_ip, 4);
 					// Send the reply
 					b_net_tx(tosend, 42, INTERFACE);
-					// b_output("!", 1); // Request was responded to
+					#ifdef DEBUG
+					b_output("!", 1); // Request was responded to
+					#endif
 				}
 			}
 			else if (buffer[21] == ARP_REPLY)
@@ -210,11 +217,15 @@ int main()
 		}
 		else if (swap16(rx->type) == ETHERTYPE_IPV4 && recv_packet_len > sizeof(ipv4_packet))
 		{
-			// b_output("ipv4_", 5);
+			#ifdef DEBUG
+			b_output("ipv4_", 5);
+			#endif
 			ipv4_packet* rx_ipv4 = (ipv4_packet*)buffer;
 			if(rx_ipv4->protocol == PROTOCOL_IP_ICMP)
 			{
-				// b_output("icmp", 4);
+				#ifdef DEBUG
+				b_output("icmp", 4);
+				#endif
 				icmp_packet* rx_icmp = (icmp_packet*)buffer;
 				if(rx_icmp->type == ICMP_ECHO_REQUEST)
 				{
@@ -251,7 +262,9 @@ int main()
 						tx_icmp->checksum = checksum(&tosend[34], recv_packet_len-14-20); // Frame length - MAC header - IPv4 header
 						// Send the reply
 						b_net_tx(tosend, recv_packet_len, INTERFACE);
-						// b_output("!", 1); // Request was responded to
+						#ifdef DEBUG
+						b_output("!", 1); // Request was responded to
+						#endif
 					}
 				}
 				else if (rx_icmp->type == ICMP_ECHO_REPLY)
@@ -265,11 +278,15 @@ int main()
 			}
 			else if(rx_ipv4->protocol == PROTOCOL_IP_TCP)
 			{
-				// b_output("tcp_", 4);
+				#ifdef DEBUG
+				b_output("tcp_", 4);
+				#endif
 				tcp_packet* rx_tcp = (tcp_packet*)buffer;
 				if (rx_tcp->flags & TCP_SYN && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP && rx_tcp->dest_port == swap16(80))
 				{
-					// b_output("syn", 3);
+					#ifdef DEBUG
+					b_output("syn", 3);
+					#endif
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 					// Ethernet
@@ -301,16 +318,22 @@ int main()
 					tx_tcp->checksum = checksum_tcp(&tosend[34], recv_packet_len-34, PROTOCOL_IP_TCP, recv_packet_len-34);
 					// Send the reply
 					b_net_tx(tosend, recv_packet_len, INTERFACE);
-					// b_output("!", 1); // Request was responded to
+					#ifdef DEBUG
+					b_output("!", 1); // Request was responded to
+					#endif
 				}
 				else if (rx_tcp->flags == TCP_ACK)
 				{
 					// Ignore these for now.
+					#ifdef DEBUG
 					b_output("ack", 3);
+					#endif
 				}
 				else if (rx_tcp->flags == (TCP_PSH|TCP_ACK) && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP && rx_tcp->dest_port == swap16(80))
 				{
-					// b_output("psh", 3);
+					#ifdef DEBUG
+					b_output("psh", 3);
+					#endif
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 					// Ethernet
@@ -364,11 +387,15 @@ int main()
 					tx_tcp->checksum = 0;
 					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
 					b_net_tx(tosend, 66, INTERFACE);
-					// b_output("!", 1); // Request was responded to
+					#ifdef DEBUG
+					b_output("!", 1); // Request was responded to
+					#endif
 				}
 				else if (rx_tcp->flags == (TCP_FIN|TCP_ACK))
 				{
-					// b_output("fin", 3);
+					#ifdef DEBUG
+					b_output("fin", 3);
+					#endif
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 					// Ethernet
@@ -400,27 +427,37 @@ int main()
 					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
 					// Send the reply
 					b_net_tx(tosend, 66, INTERFACE);
-					// b_output("!", 1); // Request was responded to
+					#ifdef DEBUG
+					b_output("!", 1); // Request was responded to
+					#endif
 				}
 				else {
-					// b_output("?", 1);
+					#ifdef DEBUG
+					b_output("?", 1);
+					#endif
 				}
 			}
 			else if (rx_ipv4->protocol == PROTOCOL_IP_UDP)
 			{
 				// TODO - UDP
-				// b_output("udp", 3);
+				#ifdef DEBUG
+				b_output("udp", 3);
+				#endif
 			}
 			else
 			{
 				// Do nothing (some other protocol)
-				// b_output("?", 1);
+				#ifdef DEBUG
+				b_output("?", 1);
+				#endif
 			}
 		}
 		else if (swap16(rx->type) == ETHERTYPE_IPV6)
 		{
 			// TODO - IPv6
-			// b_output("ipv6", 4);
+			#ifdef DEBUG
+			b_output("ipv6", 4);
+			#endif
 		}
 	}
 
