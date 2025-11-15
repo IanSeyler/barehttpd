@@ -134,7 +134,7 @@ const char webpage[] =
 "\t\t<h1>Hello world, from BareMetal!</h1>\n"
 "\t\t<p>This simple webpage is being hosted in a cloud VM running the following:</p>\n"
 "\t\t<ul>\n"
-"\t\t\t<li><b>Kernel</b> - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - a extremely minimal x86-64 exokernel that acts as a hardware abstraction layer for a cloud VM. It is written in x86-64 Assembly, is 12KiB in size, and uses 4MiB of RAM</li>\n"
+"\t\t\t<li><b>Kernel</b> - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - a extremely minimal x86-64 exokernel that acts as a hardware abstraction layer for a cloud VM. It is written in x86-64 Assembly, is 10240 bytes in size, and uses 4MiB of RAM</li>\n"
 "\t\t\t<li><b>Application</b> - IP Stack and webserver in C based on <a href=https://github.com/ReturnInfinity/BareMetal-Examples/tree/main/c/03-hello-world-http>BareMetal-Examples/c/03-hello-world-http</a></li>\n"
 "\t\t</ul>\n"
 "\t</body>\n"
