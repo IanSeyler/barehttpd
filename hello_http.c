@@ -153,7 +153,7 @@ const char webpage404[] =
 "\t\t<p>404 - Not found</p>\n"
 "\t</body>\n"
 "</html>\n";
-const char version_string[] = "hello_http v0.9.1 - DO (2025 11 16)\n";
+const char version_string[] = "hello_http v0.9.2 - DO (2025 12 21)\n";
 
 /* Main code */
 int main()
@@ -165,12 +165,18 @@ int main()
 	{
 		recv_packet_len = b_net_rx((void**)&buffer, INTERFACE);
 
+//		#ifdef DEBUG
+//		if (recv_packet_len > 0)
+//			b_system(DUMP_MEM, (u64)buffer, recv_packet_len);
+//		#endif
+
 		if (buffer == NULL || recv_packet_len < sizeof(eth_header)) // Check for valid buffer address and packet length
 		{
 			continue; // Restart to the beginning of the while loop
 		}
 
 		eth_header* rx = (eth_header*)buffer;
+
 		#ifdef DEBUG
 		b_output(" ", 1);
 		#else
@@ -178,7 +184,7 @@ int main()
 		#endif
 
 		memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
-		if (swap16(rx->type) == ETHERTYPE_ARP && recv_packet_len > sizeof(arp_packet))
+		if (swap16(rx->type) == ETHERTYPE_ARP && recv_packet_len >= sizeof(arp_packet))
 		{
 			#ifdef DEBUG
 			b_output("arp", 3);
@@ -215,7 +221,7 @@ int main()
 				// TODO - Responses to our requests
 			}
 		}
-		else if (swap16(rx->type) == ETHERTYPE_IPV4 && recv_packet_len > sizeof(ipv4_packet))
+		else if (swap16(rx->type) == ETHERTYPE_IPV4 && recv_packet_len >= sizeof(ipv4_packet))
 		{
 			#ifdef DEBUG
 			b_output("ipv4_", 5);
@@ -459,6 +465,12 @@ int main()
 			b_output("ipv6", 4);
 			#endif
 		}
+		else
+		{
+			#ifdef DEBUG
+			b_output("?", 1);
+			#endif
+		}
 	}
 
 	b_output("\n", 1);
@@ -612,12 +624,12 @@ int net_init()
 	{
 		recv_packet_len = b_net_rx((void**)&buffer, INTERFACE);
 		eth_header* rx = (eth_header*)buffer;
-		#ifdef DEBUG
-		if (recv_packet_len > 0)
-		{
-			b_system(DUMP_MEM, (u64)buffer, recv_packet_len);
-		}
-		#endif
+//		#ifdef DEBUG
+//		if (recv_packet_len > 0)
+//		{
+//			b_system(DUMP_MEM, (u64)buffer, recv_packet_len);
+//		}
+//		#endif
 		if (swap16(rx->type) == ETHERTYPE_IPV4)
 		{
 			udp_packet* rx_udp = (udp_packet*)buffer;
