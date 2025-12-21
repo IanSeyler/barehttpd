@@ -671,7 +671,6 @@ int net_init()
 					}
 					index = index + tlen + 2;
 				}
-				b_output("\n", 1);
 			}
 		}
 	}
@@ -721,8 +720,27 @@ int net_init()
 			udp_packet* rx_udp = (udp_packet*)buffer;
 			if (swap16(rx_udp->dest_port) == 68)
 			{
-				// TODO - Make sure it was actually an ACK
-				dhcp = 1;
+				unsigned int index = 282;
+				u8 tval = 0, tlen = 0;
+
+				// Parse options
+				while (1)
+				{
+					tval = buffer[index];
+					if (tval == 0xFF)
+						break;
+					tlen = buffer[index+1];
+					if (tval == 0x35) // DHCP Message
+					{
+						tval = buffer[index+2];
+						if (tval == 0x05) // ACK
+						{
+							dhcp = 1;
+							b_output(" - ACK'd\n", 9);
+						}
+					}
+					index = index + tlen + 2;
+				}
 			}
 		}
 	}
