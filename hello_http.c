@@ -296,45 +296,85 @@ int main()
 				b_output("tcp_", 4);
 				#endif
 				tcp_packet* rx_tcp = (tcp_packet*)buffer;
-				if (rx_tcp->flags & TCP_SYN && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP && rx_tcp->dest_port == swap16(80))
+				if (rx_tcp->flags & TCP_SYN && *(u32*)rx_tcp->ipv4.dest_ip == *(u32*)src_IP) // && rx_tcp->dest_port == swap16(80))
 				{
 					#ifdef DEBUG
 					b_output("syn", 3);
 					#endif
-					tcp_packet* tx_tcp = (tcp_packet*)tosend;
-					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
-					// Ethernet
-					memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-					memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-					tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
-					// IPv4
-					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
-					tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
-					tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-					tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-					tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-					tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-					tx_tcp->ipv4.checksum = 0;
-					memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-					memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
-					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-					// TCP
-					tx_tcp->src_port = rx_tcp->dest_port;
-					tx_tcp->dest_port = rx_tcp->src_port;
-					tx_tcp->seqnum = rx_tcp->seqnum;
-					tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+1);
-					tx_tcp->data_offset = rx_tcp->data_offset;
-					tx_tcp->flags = TCP_SYN|TCP_ACK;
-					tx_tcp->window = rx_tcp->window;
-					tx_tcp->checksum = 0;
-					tx_tcp->urg_pointer = rx_tcp->urg_pointer;
-					tx_tcp->checksum = checksum_tcp(&tosend[34], recv_packet_len-34, PROTOCOL_IP_TCP, recv_packet_len-34);
-					// Send the reply
-					b_net_tx(tosend, recv_packet_len, INTERFACE);
-					#ifdef DEBUG
-					b_output("!", 1); // Request was responded to
-					#endif
+					if (rx_tcp->dest_port != swap16(80))
+					{
+						tcp_packet* tx_tcp = (tcp_packet*)tosend;
+						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
+						// Ethernet
+						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
+						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
+						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						// IPv4
+						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
+						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+						tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
+						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
+						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
+						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
+						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
+						tx_tcp->ipv4.checksum = 0;
+						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
+						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+						// TCP
+						tx_tcp->src_port = rx_tcp->dest_port;
+						tx_tcp->dest_port = rx_tcp->src_port;
+						tx_tcp->seqnum = rx_tcp->seqnum;
+						tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+1);
+						tx_tcp->data_offset = rx_tcp->data_offset;
+						tx_tcp->flags = TCP_RST|TCP_ACK;
+						tx_tcp->window = rx_tcp->window;
+						tx_tcp->checksum = 0;
+						tx_tcp->urg_pointer = rx_tcp->urg_pointer;
+						tx_tcp->checksum = checksum_tcp(&tosend[34], recv_packet_len-34, PROTOCOL_IP_TCP, recv_packet_len-34);
+						// Send the reply
+						b_net_tx(tosend, recv_packet_len, INTERFACE);
+						#ifdef DEBUG
+						b_output("!", 1); // Request was responded to
+						#endif
+					}
+					else
+					{
+						tcp_packet* tx_tcp = (tcp_packet*)tosend;
+						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
+						// Ethernet
+						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
+						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
+						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						// IPv4
+						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
+						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+						tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
+						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
+						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
+						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
+						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
+						tx_tcp->ipv4.checksum = 0;
+						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
+						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+						// TCP
+						tx_tcp->src_port = rx_tcp->dest_port;
+						tx_tcp->dest_port = rx_tcp->src_port;
+						tx_tcp->seqnum = rx_tcp->seqnum;
+						tx_tcp->acknum = swap32(swap32(rx_tcp->seqnum)+1);
+						tx_tcp->data_offset = rx_tcp->data_offset;
+						tx_tcp->flags = TCP_SYN|TCP_ACK;
+						tx_tcp->window = rx_tcp->window;
+						tx_tcp->checksum = 0;
+						tx_tcp->urg_pointer = rx_tcp->urg_pointer;
+						tx_tcp->checksum = checksum_tcp(&tosend[34], recv_packet_len-34, PROTOCOL_IP_TCP, recv_packet_len-34);
+						// Send the reply
+						b_net_tx(tosend, recv_packet_len, INTERFACE);
+						#ifdef DEBUG
+						b_output("!", 1); // Request was responded to
+						#endif
+					}
 				}
 				else if (rx_tcp->flags == TCP_ACK)
 				{
