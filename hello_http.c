@@ -13,6 +13,7 @@ void* memcpy(void* d, const void* s, int n);
 int strlen(const char* s);
 char* b_to_s(char* buffer, unsigned char byte);
 void display_ip(u8* ip);
+void halt();
 
 /* Global defines */
 #define swap16(x) __builtin_bswap16(x)
@@ -164,6 +165,13 @@ int main()
 	while(running == 1)
 	{
 		recv_packet_len = b_net_rx((void**)&buffer, INTERFACE);
+
+		// If there was no data then halt until an interrupt occurs
+		if (recv_packet_len == 0)
+		{
+			halt();
+			continue;
+		}
 
 //		#ifdef DEBUG
 //		if (recv_packet_len > 0)
@@ -702,7 +710,22 @@ int net_init()
 		b_net_tx(tosend, 338, INTERFACE);
 	}
 
-	// Ignore the DHCP ACK for now.
+	// Wait for a DHCP ACK Packet
+	dhcp = 0;
+	while (dhcp == 0)
+	{
+		recv_packet_len = b_net_rx((void**)&buffer, INTERFACE);
+		eth_header* rx = (eth_header*)buffer;
+		if (swap16(rx->type) == ETHERTYPE_IPV4)
+		{
+			udp_packet* rx_udp = (udp_packet*)buffer;
+			if (swap16(rx_udp->dest_port) == 68)
+			{
+				// TODO - Make sure it was actually an ACK
+				dhcp = 1;
+			}
+		}
+	}
 	#endif
 
 	return 0;
@@ -802,6 +825,11 @@ void display_ip(u8* ip)
 	b_output(".", 1);
 	b_to_s(tstring, ip[3]);
 	b_output(tstring, (unsigned long)strlen(tstring));
+}
+
+void halt()
+{
+	asm volatile ("hlt" : : );
 }
 
 /* EOF */
