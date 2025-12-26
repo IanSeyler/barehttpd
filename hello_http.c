@@ -4,17 +4,6 @@
 /* Global Includes */
 #include "libBareMetal.h"
 
-/* Global functions */
-u16 checksum(u8* data, u16 bytes);
-u16 checksum_tcp(u8* data, u16 bytes, u16 protocol, u16 length);
-int net_init();
-void* memset(void* s, int c, int n);
-void* memcpy(void* d, const void* s, int n);
-int strlen(const char* s);
-char* b_to_s(char* buffer, unsigned char byte);
-void display_ip(u8* ip);
-void halt();
-
 /* Global defines */
 #define swap16(x) __builtin_bswap16(x)
 #define swap32(x) __builtin_bswap32(x)
@@ -154,7 +143,19 @@ const char webpage404[] =
 "\t\t<p>404 - Not found</p>\n"
 "\t</body>\n"
 "</html>\n";
-const char version_string[] = "hello_http v0.9.2 - DO (2025 12 21)\n";
+const char version_string[] = "barehttpd v0.9.2 (2025 12 26)\n";
+
+/* Global functions */
+u16 checksum(u8* data, u16 bytes);
+u16 checksum_tcp(u8* data, u16 bytes, u16 protocol, u16 length);
+int net_init();
+void* memset(void* s, int c, int n);
+void* memcpy(void* d, const void* s, int n);
+int strlen(const char* s);
+char* b_to_s(char* buffer, unsigned char byte);
+void display_ip(u8* ip);
+void halt();
+void helper_ethernet(eth_header* tx, eth_header* rx, u16 ethertype);
 
 /* Main code */
 int main()
@@ -204,9 +205,10 @@ int main()
 				{
 					arp_packet* tx_arp = (arp_packet*)tosend;
 					// Ethernet
-					memcpy(tx_arp->ethernet.dest_mac, rx_arp->sender_mac, 6);
-					memcpy(tx_arp->ethernet.src_mac, src_MAC, 6);
-					tx_arp->ethernet.type = swap16(ETHERTYPE_ARP);
+					//memcpy(tx_arp->ethernet.dest_mac, rx_arp->sender_mac, 6);
+					//memcpy(tx_arp->ethernet.src_mac, src_MAC, 6);
+					//tx_arp->ethernet.type = swap16(ETHERTYPE_ARP);
+					helper_ethernet(&tx_arp->ethernet, &rx_arp->ethernet, ETHERTYPE_ARP);
 					// ARP
 					tx_arp->hardware_type = swap16(1); // Ethernet
 					tx_arp->protocol = swap16(ETHERTYPE_IPV4);
@@ -248,9 +250,10 @@ int main()
 						// Reply to the ping request
 						icmp_packet* tx_icmp = (icmp_packet*)tosend;
 						// Ethernet
-						memcpy(tx_icmp->ipv4.ethernet.dest_mac, rx_icmp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_icmp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_icmp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						//memcpy(tx_icmp->ipv4.ethernet.dest_mac, rx_icmp->ipv4.ethernet.src_mac, 6);
+						//memcpy(tx_icmp->ipv4.ethernet.src_mac, src_MAC, 6);
+						//tx_icmp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						helper_ethernet(&tx_icmp->ethernet, &rx_icmp->ethernet, ETHERTYPE_IPV4);
 						// IPv4
 						tx_icmp->ipv4.version = rx_icmp->ipv4.version;
 						tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
@@ -888,6 +891,12 @@ void display_ip(u8* ip)
 void halt()
 {
 	asm volatile ("hlt" : : );
+}
+
+void helper_ethernet(eth_header* tx, eth_header* rx, u16 ethertype) {
+	memcpy(tx->dest_mac, rx->src_mac, 6);
+	memcpy(tx->src_mac, src_MAC, 6);
+	tx->type = swap16(ethertype);
 }
 
 /* EOF */
