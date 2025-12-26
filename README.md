@@ -1,4 +1,4 @@
-## http_do - Digital Ocean HTTP test
+## barehttpd - BareMetal HTTP Server
 
 ### Description:
 
