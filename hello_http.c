@@ -205,9 +205,6 @@ int main()
 				{
 					arp_packet* tx_arp = (arp_packet*)tosend;
 					// Ethernet
-					//memcpy(tx_arp->ethernet.dest_mac, rx_arp->sender_mac, 6);
-					//memcpy(tx_arp->ethernet.src_mac, src_MAC, 6);
-					//tx_arp->ethernet.type = swap16(ETHERTYPE_ARP);
 					helper_ethernet(&tx_arp->ethernet, &rx_arp->ethernet, ETHERTYPE_ARP);
 					// ARP
 					tx_arp->hardware_type = swap16(1); // Ethernet
@@ -250,10 +247,7 @@ int main()
 						// Reply to the ping request
 						icmp_packet* tx_icmp = (icmp_packet*)tosend;
 						// Ethernet
-						//memcpy(tx_icmp->ipv4.ethernet.dest_mac, rx_icmp->ipv4.ethernet.src_mac, 6);
-						//memcpy(tx_icmp->ipv4.ethernet.src_mac, src_MAC, 6);
-						//tx_icmp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
-						helper_ethernet(&tx_icmp->ethernet, &rx_icmp->ethernet, ETHERTYPE_IPV4);
+						helper_ethernet(&tx_icmp->ipv4.ethernet, &rx_icmp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
 						tx_icmp->ipv4.version = rx_icmp->ipv4.version;
 						tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
@@ -309,9 +303,7 @@ int main()
 						tcp_packet* tx_tcp = (tcp_packet*)tosend;
 						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 						// Ethernet
-						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
 						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
 						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
@@ -346,9 +338,7 @@ int main()
 						tcp_packet* tx_tcp = (tcp_packet*)tosend;
 						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 						// Ethernet
-						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
 						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
 						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
@@ -394,9 +384,7 @@ int main()
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 					// Ethernet
-					memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-					memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-					tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+					helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 					// IPv4
 					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
 					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
@@ -456,9 +444,7 @@ int main()
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 					// Ethernet
-					memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-					memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-					tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+					helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 					// IPv4
 					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
 					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
