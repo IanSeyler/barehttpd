@@ -43,6 +43,7 @@ u8 dhcpsrc[4] = {0, 0, 0, 0};
 unsigned char *buffer;
 unsigned char tosend[ETH_FRAME_LEN];
 int running = 1, recv_packet_len;
+u16 EtherType = 0;
 
 /* Global structs */
 #pragma pack(1)
@@ -129,6 +130,7 @@ const char webpage[] =
 "\t\t</ul>\n"
 "\t</body>\n"
 "</html>\n";
+u32 WEBPAGE_LEN = sizeof(webpage) - 1;
 const char webpage404[] =
 "HTTP/1.0 404 Not Found\n"
 "Server: BareMetal\n"
@@ -185,6 +187,7 @@ int main()
 		}
 
 		eth_header* rx = (eth_header*)buffer;
+		EtherType = swap16(rx->type);
 
 		#ifdef DEBUG
 		b_output(" ", 1);
@@ -193,7 +196,7 @@ int main()
 		#endif
 
 		memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
-		if (swap16(rx->type) == ETHERTYPE_ARP && recv_packet_len >= sizeof(arp_packet))
+		if (EtherType == ETHERTYPE_ARP && recv_packet_len >= sizeof(arp_packet))
 		{
 			#ifdef DEBUG
 			b_output("arp", 3);
@@ -228,7 +231,7 @@ int main()
 				// TODO - Responses to our requests
 			}
 		}
-		else if (swap16(rx->type) == ETHERTYPE_IPV4 && recv_packet_len >= sizeof(ipv4_packet))
+		else if (EtherType == ETHERTYPE_IPV4 && recv_packet_len >= sizeof(ipv4_packet))
 		{
 			#ifdef DEBUG
 			b_output("ipv4_", 5);
@@ -415,19 +418,19 @@ int main()
 					// If so, send the page
 					// Otherwise 404
 					// Send the webpage
-					tx_tcp->ipv4.total_length = swap16(52+strlen(webpage));
+					tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
 					tx_tcp->ipv4.checksum = 0;
 					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 					tx_tcp->flags = TCP_PSH|TCP_ACK;
 					tx_tcp->checksum = 0;
-					memcpy((char*)tosend+66, (char*)webpage, strlen(webpage));
-					tx_tcp->checksum = checksum_tcp(&tosend[34], 32+strlen(webpage), PROTOCOL_IP_TCP, 32+strlen(webpage));
-					b_net_tx(tosend, 66+strlen(webpage), INTERFACE);
+					memcpy((char*)tosend+66, (char*)webpage, WEBPAGE_LEN);
+					tx_tcp->checksum = checksum_tcp(&tosend[34], 32+WEBPAGE_LEN, PROTOCOL_IP_TCP, 32+WEBPAGE_LEN);
+					b_net_tx(tosend, 66+WEBPAGE_LEN, INTERFACE);
 					// Disconnect the client
 					tx_tcp->ipv4.total_length = swap16(52);
 					tx_tcp->ipv4.checksum = 0;
 					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-					tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+strlen(webpage));
+					tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+WEBPAGE_LEN);
 					tx_tcp->flags = TCP_FIN|TCP_ACK;
 					tx_tcp->checksum = 0;
 					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
@@ -495,7 +498,7 @@ int main()
 				#endif
 			}
 		}
-		else if (swap16(rx->type) == ETHERTYPE_IPV6)
+		else if (EtherType == ETHERTYPE_IPV6)
 		{
 			// TODO - IPv6
 			#ifdef DEBUG
