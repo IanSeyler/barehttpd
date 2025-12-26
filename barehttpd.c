@@ -158,6 +158,7 @@ char* b_to_s(char* buffer, unsigned char byte);
 void display_ip(u8* ip);
 void halt();
 void helper_ethernet(eth_header* tx, eth_header* rx, u16 ethertype);
+void helper_ipv4(tcp_packet* tx, tcp_packet* rx);
 
 /* Main code */
 int main()
@@ -308,16 +309,7 @@ int main()
 						// Ethernet
 						helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
-						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
-						tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
-						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-						tx_tcp->ipv4.checksum = 0;
-						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+						helper_ipv4(tx_tcp, rx_tcp);
 						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 						// TCP
 						tx_tcp->src_port = rx_tcp->dest_port;
@@ -343,16 +335,7 @@ int main()
 						// Ethernet
 						helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
-						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
-						tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
-						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-						tx_tcp->ipv4.checksum = 0;
-						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+						helper_ipv4(tx_tcp, rx_tcp);
 						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 						// TCP
 						tx_tcp->src_port = rx_tcp->dest_port;
@@ -389,16 +372,8 @@ int main()
 					// Ethernet
 					helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 					// IPv4
-					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+					helper_ipv4(tx_tcp, rx_tcp);
 					tx_tcp->ipv4.total_length = swap16(52);
-					tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-					tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-					tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-					tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-					tx_tcp->ipv4.checksum = 0;
-					memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-					memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
 					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 					// TCP
 					tx_tcp->src_port = rx_tcp->dest_port;
@@ -449,16 +424,8 @@ int main()
 					// Ethernet
 					helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 					// IPv4
-					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+					helper_ipv4(tx_tcp, rx_tcp);
 					tx_tcp->ipv4.total_length = swap16(52);
-					tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-					tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-					tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-					tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-					tx_tcp->ipv4.checksum = 0;
-					memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-					memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
 					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 					// TCP
 					tx_tcp->src_port = rx_tcp->dest_port;
@@ -888,4 +855,17 @@ void helper_ethernet(eth_header* tx, eth_header* rx, u16 ethertype) {
 	tx->type = swap16(ethertype);
 }
 
+void helper_ipv4(tcp_packet* tx, tcp_packet* rx)
+{
+	tx->ipv4.version = rx->ipv4.version;
+	tx->ipv4.dsf = rx->ipv4.dsf;
+	tx->ipv4.total_length = rx->ipv4.total_length;
+	tx->ipv4.id = rx->ipv4.id;
+	tx->ipv4.flags = rx->ipv4.flags;
+	tx->ipv4.ttl = rx->ipv4.ttl;
+	tx->ipv4.protocol = rx->ipv4.protocol;
+	tx->ipv4.checksum = 0;
+	memcpy(tx->ipv4.src_ip, rx->ipv4.dest_ip, 4);
+	memcpy(tx->ipv4.dest_ip, rx->ipv4.src_ip, 4);
+}
 /* EOF */
