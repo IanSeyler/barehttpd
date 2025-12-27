@@ -253,19 +253,11 @@ int main()
 						// Ethernet
 						helper_ethernet(&tx_icmp->ipv4.ethernet, &rx_icmp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
-						tx_icmp->ipv4.version = rx_icmp->ipv4.version;
-						tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
 						// Todo - a better way to check the minimum.. breaks the memcpy below but that math may be off.
 						if (swap16(rx_icmp->ipv4.total_length) > 1400 || swap16(rx_icmp->ipv4.total_length) < 36) // Ignore ICMP larger and smaller than this
 							continue;
-						tx_icmp->ipv4.total_length = rx_icmp->ipv4.total_length;
-						tx_icmp->ipv4.id = rx_icmp->ipv4.id;
-						tx_icmp->ipv4.flags = rx_icmp->ipv4.flags;
-						tx_icmp->ipv4.ttl = rx_icmp->ipv4.ttl;
-						tx_icmp->ipv4.protocol = rx_icmp->ipv4.protocol;
-						tx_icmp->ipv4.checksum = rx_icmp->ipv4.checksum; // No need to recalculate checksum
-						memcpy(tx_icmp->ipv4.src_ip, rx_icmp->ipv4.dest_ip, 4);
-						memcpy(tx_icmp->ipv4.dest_ip, rx_icmp->ipv4.src_ip, 4);
+						helper_ipv4(&tx_icmp->ipv4, &rx_icmp->ipv4);
+						tx_icmp->ipv4.checksum = rx_icmp->ipv4.checksum; // Use the received checksum
 						// ICMP
 						tx_icmp->type = ICMP_ECHO_REPLY;
 						tx_icmp->code = rx_icmp->code;
