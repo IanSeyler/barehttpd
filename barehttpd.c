@@ -145,6 +145,7 @@ const char webpage404[] =
 "\t\t<p>404 - Not found</p>\n"
 "\t</body>\n"
 "</html>\n";
+u32 WEBPAGE404_LEN = sizeof(webpage404) - 1;
 const char version_string[] = "barehttpd v0.9.2 (2025 12 26)\n";
 
 /* Global functions */
@@ -381,23 +382,65 @@ int main()
 					// Send the reply
 					b_net_tx(tosend, 66, INTERFACE);
 					// Check for what was requested
-					// Does it contain just the string "GET / " or GET /INDEX?
-					// If so, send the page
-					// Otherwise 404
-					// Send the webpage
-					tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
-					tx_tcp->ipv4.checksum = 0;
-					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-					tx_tcp->flags = TCP_PSH|TCP_ACK;
-					tx_tcp->checksum = 0;
-					memcpy((char*)tosend+66, (char*)webpage, WEBPAGE_LEN);
-					tx_tcp->checksum = checksum_tcp(&tosend[34], 32+WEBPAGE_LEN, PROTOCOL_IP_TCP, 32+WEBPAGE_LEN);
-					b_net_tx(tosend, 66+WEBPAGE_LEN, INTERFACE);
-					// Disconnect the client
-					tx_tcp->ipv4.total_length = swap16(52);
-					tx_tcp->ipv4.checksum = 0;
-					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-					tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+WEBPAGE_LEN);
+					char* http_request = (char*)buffer + 66;
+					u32 request_len = recv_packet_len - 66;
+					u32 send404 = 1; // Default to 404
+					// Check if the request starts with "GET / " or "GET /INDEX"
+					if (request_len >= 6) {
+						if (http_request[0] == 'G' && http_request[1] == 'E' && http_request[2] == 'T' && http_request[3] == ' ')
+						{
+							// Check for "GET / " (6 chars including space after slash)
+							if (http_request[4] == '/' && (http_request[5] == ' ' || http_request[5] == 'H'))
+							{
+								send404 = 0;
+							}
+							// Check for "GET /INDEX" (case insensitive)
+							else if (request_len >= 10 && http_request[4] == '/')
+							{
+								if ((http_request[5] == 'I' || http_request[5] == 'i') &&
+								    (http_request[6] == 'N' || http_request[6] == 'n') &&
+								    (http_request[7] == 'D' || http_request[7] == 'd') &&
+								    (http_request[8] == 'E' || http_request[8] == 'e') &&
+								    (http_request[9] == 'X' || http_request[9] == 'x'))
+									{
+										send404 = 0;
+									}
+								}
+							}
+						}
+					// If so, send the page, otherwise 404
+					if (send404 == 0)
+					{
+						tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
+						tx_tcp->ipv4.checksum = 0;
+						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+						tx_tcp->flags = TCP_PSH|TCP_ACK;
+						tx_tcp->checksum = 0;
+						memcpy((char*)tosend+66, (char*)webpage, WEBPAGE_LEN);
+						tx_tcp->checksum = checksum_tcp(&tosend[34], 32+WEBPAGE_LEN, PROTOCOL_IP_TCP, 32+WEBPAGE_LEN);
+						b_net_tx(tosend, 66+WEBPAGE_LEN, INTERFACE);
+						// Disconnect the client
+						tx_tcp->ipv4.total_length = swap16(52);
+						tx_tcp->ipv4.checksum = 0;
+						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+						tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+WEBPAGE_LEN);
+					}
+					else
+					{
+						tx_tcp->ipv4.total_length = swap16(52+WEBPAGE404_LEN);
+						tx_tcp->ipv4.checksum = 0;
+						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+						tx_tcp->flags = TCP_PSH|TCP_ACK;
+						tx_tcp->checksum = 0;
+						memcpy((char*)tosend+66, (char*)webpage404, WEBPAGE404_LEN);
+						tx_tcp->checksum = checksum_tcp(&tosend[34], 32+WEBPAGE404_LEN, PROTOCOL_IP_TCP, 32+WEBPAGE404_LEN);
+						b_net_tx(tosend, 66+WEBPAGE404_LEN, INTERFACE);
+						// Disconnect the client
+						tx_tcp->ipv4.total_length = swap16(52);
+						tx_tcp->ipv4.checksum = 0;
+						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
+						tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+WEBPAGE404_LEN);
+					}
 					tx_tcp->flags = TCP_FIN|TCP_ACK;
 					tx_tcp->checksum = 0;
 					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
