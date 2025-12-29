@@ -125,8 +125,8 @@ const char webpage[] =
 "\t\t<h1>Hello world, from BareMetal!</h1>\n"
 "\t\t<p>This simple webpage is being hosted in a cloud VM running the following:</p>\n"
 "\t\t<ul>\n"
-"\t\t\t<li><b>Kernel</b> - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - an extremely minimal x86-64 exokernel that acts as a hardware abstraction layer. It is written in x86-64 Assembly, is 10240 bytes in size, and uses 4MiB of RAM</li>\n"
-"\t\t\t<li><b>Application</b> - IP Stack and webserver in C based on <a href=https://github.com/ReturnInfinity/BareMetal-Examples/tree/main/c/03-hello-world-http>BareMetal-Examples/c/03-hello-world-http</a></li>\n"
+"\t\t\t<li><b>Kernel</b> - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - an extremely minimal x86-64 exokernel that acts as a hardware abstraction layer. It is written in x86-64 Assembly, is 10240 bytes in size, and uses 4MiB of RAM.</li>\n"
+"\t\t\t<li><b>Application</b> - Minimal IP stack and web server written in C based - <a href=https://github.com/IanSeyler/barehttpd>barehttpd</a>. It contains just enough logic to handle ARP, DHCP, ICMP, as well as HTTP requests and responses.</li>\n"
 "\t\t</ul>\n"
 "\t</body>\n"
 "</html>\n";
@@ -193,8 +193,8 @@ int main()
 
 		#ifdef DEBUG
 		b_output(" ", 1);
-		#else
-		b_output(".", 1);
+//		#else
+//		b_output(".", 1);
 		#endif
 
 		memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
