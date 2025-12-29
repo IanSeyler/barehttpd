@@ -146,7 +146,7 @@ const char webpage404[] =
 "\t</body>\n"
 "</html>\n";
 u32 WEBPAGE404_LEN = sizeof(webpage404) - 1;
-const char version_string[] = "barehttpd v0.9.2 (2025 12 26)\n";
+const char version_string[] = "barehttpd v0.9.3 (2025 12 29)\n";
 
 /* Global functions */
 u16 checksum(u8* data, u16 bytes);
