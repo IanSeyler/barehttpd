@@ -4,17 +4,6 @@
 /* Global Includes */
 #include "libBareMetal.h"
 
-/* Global functions */
-u16 checksum(u8* data, u16 bytes);
-u16 checksum_tcp(u8* data, u16 bytes, u16 protocol, u16 length);
-int net_init();
-void* memset(void* s, int c, int n);
-void* memcpy(void* d, const void* s, int n);
-int strlen(const char* s);
-char* b_to_s(char* buffer, unsigned char byte);
-void display_ip(u8* ip);
-void halt();
-
 /* Global defines */
 #define swap16(x) __builtin_bswap16(x)
 #define swap32(x) __builtin_bswap32(x)
@@ -54,6 +43,7 @@ u8 dhcpsrc[4] = {0, 0, 0, 0};
 unsigned char *buffer;
 unsigned char tosend[ETH_FRAME_LEN];
 int running = 1, recv_packet_len;
+u16 EtherType = 0;
 
 /* Global structs */
 #pragma pack(1)
@@ -140,6 +130,7 @@ const char webpage[] =
 "\t\t</ul>\n"
 "\t</body>\n"
 "</html>\n";
+u32 WEBPAGE_LEN = sizeof(webpage) - 1;
 const char webpage404[] =
 "HTTP/1.0 404 Not Found\n"
 "Server: BareMetal\n"
@@ -154,7 +145,20 @@ const char webpage404[] =
 "\t\t<p>404 - Not found</p>\n"
 "\t</body>\n"
 "</html>\n";
-const char version_string[] = "hello_http v0.9.2 - DO (2025 12 21)\n";
+const char version_string[] = "barehttpd v0.9.2 (2025 12 26)\n";
+
+/* Global functions */
+u16 checksum(u8* data, u16 bytes);
+u16 checksum_tcp(u8* data, u16 bytes, u16 protocol, u16 length);
+int net_init();
+void* memset(void* s, int c, int n);
+void* memcpy(void* d, const void* s, int n);
+int strlen(const char* s);
+char* b_to_s(char* buffer, unsigned char byte);
+void display_ip(u8* ip);
+void halt();
+void helper_ethernet(eth_header* tx, eth_header* rx, u16 ethertype);
+void helper_ipv4(ipv4_packet* tx, ipv4_packet* rx);
 
 /* Main code */
 int main()
@@ -184,6 +188,7 @@ int main()
 		}
 
 		eth_header* rx = (eth_header*)buffer;
+		EtherType = swap16(rx->type);
 
 		#ifdef DEBUG
 		b_output(" ", 1);
@@ -192,7 +197,7 @@ int main()
 		#endif
 
 		memset(tosend, 0, ETH_FRAME_LEN); // clear the send buffer
-		if (swap16(rx->type) == ETHERTYPE_ARP && recv_packet_len >= sizeof(arp_packet))
+		if (EtherType == ETHERTYPE_ARP && recv_packet_len >= sizeof(arp_packet))
 		{
 			#ifdef DEBUG
 			b_output("arp", 3);
@@ -204,9 +209,7 @@ int main()
 				{
 					arp_packet* tx_arp = (arp_packet*)tosend;
 					// Ethernet
-					memcpy(tx_arp->ethernet.dest_mac, rx_arp->sender_mac, 6);
-					memcpy(tx_arp->ethernet.src_mac, src_MAC, 6);
-					tx_arp->ethernet.type = swap16(ETHERTYPE_ARP);
+					helper_ethernet(&tx_arp->ethernet, &rx_arp->ethernet, ETHERTYPE_ARP);
 					// ARP
 					tx_arp->hardware_type = swap16(1); // Ethernet
 					tx_arp->protocol = swap16(ETHERTYPE_IPV4);
@@ -229,7 +232,7 @@ int main()
 				// TODO - Responses to our requests
 			}
 		}
-		else if (swap16(rx->type) == ETHERTYPE_IPV4 && recv_packet_len >= sizeof(ipv4_packet))
+		else if (EtherType == ETHERTYPE_IPV4 && recv_packet_len >= sizeof(ipv4_packet))
 		{
 			#ifdef DEBUG
 			b_output("ipv4_", 5);
@@ -248,23 +251,13 @@ int main()
 						// Reply to the ping request
 						icmp_packet* tx_icmp = (icmp_packet*)tosend;
 						// Ethernet
-						memcpy(tx_icmp->ipv4.ethernet.dest_mac, rx_icmp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_icmp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_icmp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						helper_ethernet(&tx_icmp->ipv4.ethernet, &rx_icmp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
-						tx_icmp->ipv4.version = rx_icmp->ipv4.version;
-						tx_icmp->ipv4.dsf = rx_icmp->ipv4.dsf;
 						// Todo - a better way to check the minimum.. breaks the memcpy below but that math may be off.
 						if (swap16(rx_icmp->ipv4.total_length) > 1400 || swap16(rx_icmp->ipv4.total_length) < 36) // Ignore ICMP larger and smaller than this
 							continue;
-						tx_icmp->ipv4.total_length = rx_icmp->ipv4.total_length;
-						tx_icmp->ipv4.id = rx_icmp->ipv4.id;
-						tx_icmp->ipv4.flags = rx_icmp->ipv4.flags;
-						tx_icmp->ipv4.ttl = rx_icmp->ipv4.ttl;
-						tx_icmp->ipv4.protocol = rx_icmp->ipv4.protocol;
-						tx_icmp->ipv4.checksum = rx_icmp->ipv4.checksum; // No need to recalculate checksum
-						memcpy(tx_icmp->ipv4.src_ip, rx_icmp->ipv4.dest_ip, 4);
-						memcpy(tx_icmp->ipv4.dest_ip, rx_icmp->ipv4.src_ip, 4);
+						helper_ipv4(&tx_icmp->ipv4, &rx_icmp->ipv4);
+						tx_icmp->ipv4.checksum = rx_icmp->ipv4.checksum; // Use the received checksum
 						// ICMP
 						tx_icmp->type = ICMP_ECHO_REPLY;
 						tx_icmp->code = rx_icmp->code;
@@ -306,20 +299,9 @@ int main()
 						tcp_packet* tx_tcp = (tcp_packet*)tosend;
 						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 						// Ethernet
-						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
-						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
-						tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
-						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-						tx_tcp->ipv4.checksum = 0;
-						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+						helper_ipv4(&tx_tcp->ipv4, &rx_tcp->ipv4);
 						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 						// TCP
 						tx_tcp->src_port = rx_tcp->dest_port;
@@ -343,20 +325,9 @@ int main()
 						tcp_packet* tx_tcp = (tcp_packet*)tosend;
 						memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 						// Ethernet
-						memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-						memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-						tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+						helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 						// IPv4
-						tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-						tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
-						tx_tcp->ipv4.total_length = rx_tcp->ipv4.total_length;
-						tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-						tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-						tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-						tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-						tx_tcp->ipv4.checksum = 0;
-						memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-						memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
+						helper_ipv4(&tx_tcp->ipv4, &rx_tcp->ipv4);
 						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 						// TCP
 						tx_tcp->src_port = rx_tcp->dest_port;
@@ -391,20 +362,10 @@ int main()
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 					// Ethernet
-					memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-					memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-					tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+					helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 					// IPv4
-					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+					helper_ipv4(&tx_tcp->ipv4, &rx_tcp->ipv4);
 					tx_tcp->ipv4.total_length = swap16(52);
-					tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-					tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-					tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-					tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-					tx_tcp->ipv4.checksum = 0;
-					memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-					memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
 					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 					// TCP
 					tx_tcp->src_port = rx_tcp->dest_port;
@@ -424,19 +385,19 @@ int main()
 					// If so, send the page
 					// Otherwise 404
 					// Send the webpage
-					tx_tcp->ipv4.total_length = swap16(52+strlen(webpage));
+					tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
 					tx_tcp->ipv4.checksum = 0;
 					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 					tx_tcp->flags = TCP_PSH|TCP_ACK;
 					tx_tcp->checksum = 0;
-					memcpy((char*)tosend+66, (char*)webpage, strlen(webpage));
-					tx_tcp->checksum = checksum_tcp(&tosend[34], 32+strlen(webpage), PROTOCOL_IP_TCP, 32+strlen(webpage));
-					b_net_tx(tosend, 66+strlen(webpage), INTERFACE);
+					memcpy((char*)tosend+66, (char*)webpage, WEBPAGE_LEN);
+					tx_tcp->checksum = checksum_tcp(&tosend[34], 32+WEBPAGE_LEN, PROTOCOL_IP_TCP, 32+WEBPAGE_LEN);
+					b_net_tx(tosend, 66+WEBPAGE_LEN, INTERFACE);
 					// Disconnect the client
 					tx_tcp->ipv4.total_length = swap16(52);
 					tx_tcp->ipv4.checksum = 0;
 					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
-					tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+strlen(webpage));
+					tx_tcp->seqnum = swap32(swap32(tx_tcp->seqnum)+WEBPAGE_LEN);
 					tx_tcp->flags = TCP_FIN|TCP_ACK;
 					tx_tcp->checksum = 0;
 					tx_tcp->checksum = checksum_tcp(&tosend[34], 32, PROTOCOL_IP_TCP, 32);
@@ -453,20 +414,10 @@ int main()
 					tcp_packet* tx_tcp = (tcp_packet*)tosend;
 					memcpy((void*)tosend, (void*)buffer, ETH_FRAME_LEN); // make a copy of the original frame
 					// Ethernet
-					memcpy(tx_tcp->ipv4.ethernet.dest_mac, rx_tcp->ipv4.ethernet.src_mac, 6);
-					memcpy(tx_tcp->ipv4.ethernet.src_mac, src_MAC, 6);
-					tx_tcp->ipv4.ethernet.type = swap16(ETHERTYPE_IPV4);
+					helper_ethernet(&tx_tcp->ipv4.ethernet, &rx_tcp->ipv4.ethernet, ETHERTYPE_IPV4);
 					// IPv4
-					tx_tcp->ipv4.version = rx_tcp->ipv4.version;
-					tx_tcp->ipv4.dsf = rx_tcp->ipv4.dsf;
+					helper_ipv4(&tx_tcp->ipv4, &rx_tcp->ipv4);
 					tx_tcp->ipv4.total_length = swap16(52);
-					tx_tcp->ipv4.id = rx_tcp->ipv4.id;
-					tx_tcp->ipv4.flags = rx_tcp->ipv4.flags;
-					tx_tcp->ipv4.ttl = rx_tcp->ipv4.ttl;
-					tx_tcp->ipv4.protocol = rx_tcp->ipv4.protocol;
-					tx_tcp->ipv4.checksum = 0;
-					memcpy(tx_tcp->ipv4.src_ip, rx_tcp->ipv4.dest_ip, 4);
-					memcpy(tx_tcp->ipv4.dest_ip, rx_tcp->ipv4.src_ip, 4);
 					tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
 					// TCP
 					tx_tcp->src_port = rx_tcp->dest_port;
@@ -506,7 +457,7 @@ int main()
 				#endif
 			}
 		}
-		else if (swap16(rx->type) == ETHERTYPE_IPV6)
+		else if (EtherType == ETHERTYPE_IPV6)
 		{
 			// TODO - IPv6
 			#ifdef DEBUG
@@ -890,4 +841,23 @@ void halt()
 	asm volatile ("hlt" : : );
 }
 
+void helper_ethernet(eth_header* tx, eth_header* rx, u16 ethertype) {
+	memcpy(tx->dest_mac, rx->src_mac, 6);
+	memcpy(tx->src_mac, src_MAC, 6);
+	tx->type = swap16(ethertype);
+}
+
+void helper_ipv4(ipv4_packet* tx, ipv4_packet* rx)
+{
+	tx->version = rx->version;
+	tx->dsf = rx->dsf;
+	tx->total_length = rx->total_length;
+	tx->id = rx->id;
+	tx->flags = rx->flags;
+	tx->ttl = rx->ttl;
+	tx->protocol = rx->protocol;
+	tx->checksum = 0;
+	memcpy(tx->src_ip, rx->dest_ip, 4);
+	memcpy(tx->dest_ip, rx->src_ip, 4);
+}
 /* EOF */
