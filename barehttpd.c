@@ -45,7 +45,7 @@ unsigned char tosend[ETH_FRAME_LEN];
 int running = 1, recv_packet_len;
 u16 EtherType = 0;
 u8 hitcount = 0;
-char hitstring[] = "   ";
+char tempstring[] = "   ";
 
 /* Global structs */
 #pragma pack(1)
@@ -124,7 +124,7 @@ char webpage[] =
 "\t\t<title>Hello</title>\n"
 "\t</head>\n"
 "\t<body>\n"
-"\t\t<h1>Hello world, from BareMetal!</h1>\n"
+"\t\t<h1>Hello    .   .   .    !</h1>\n"
 "\t\t<p>This simple webpage is being hosted in a cloud VM running the following:</p>\n"
 "\t\t<ul>\n"
 "\t\t\t<li><b>Kernel</b> - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - an extremely minimal x86-64 exokernel that acts as a hardware abstraction layer. It is written in x86-64 Assembly, is 10240 bytes in size, and uses 4MiB of RAM.</li>\n"
@@ -149,7 +149,7 @@ const char webpage404[] =
 "\t</body>\n"
 "</html>\n";
 u32 WEBPAGE404_LEN = sizeof(webpage404) - 1;
-const char version_string[] = "barehttpd v0.9.3 (2025 12 29)\n";
+const char version_string[] = "barehttpd v0.9.4 (2026 05 04)\n";
 
 /* Global functions */
 u16 checksum(u8* data, u16 bytes);
@@ -414,10 +414,23 @@ int main()
 					// If so, send the page, otherwise 404
 					if (send404 == 0)
 					{
+						u8 ipval;
+						ipval = rx_tcp->ipv4.src_ip[0];
+						b_to_s(tempstring, ipval);
+						memcpy((char*)webpage+142, tempstring, strlen(tempstring));
+						ipval = rx_tcp->ipv4.src_ip[1];
+						b_to_s(tempstring, ipval);
+						memcpy((char*)webpage+146, tempstring, strlen(tempstring));
+						ipval = rx_tcp->ipv4.src_ip[2];
+						b_to_s(tempstring, ipval);
+						memcpy((char*)webpage+150, tempstring, strlen(tempstring));
+						ipval = rx_tcp->ipv4.src_ip[3];
+						b_to_s(tempstring, ipval);
+						memcpy((char*)webpage+154, tempstring, strlen(tempstring));
 						// Add hitcount to webpage
 						hitcount++;
-						b_to_s(hitstring, hitcount);
-						memcpy((char*)webpage+WEBPAGE_LEN-32, hitstring, strlen(hitstring));
+						b_to_s(tempstring, hitcount);
+						memcpy((char*)webpage+WEBPAGE_LEN-32, tempstring, strlen(tempstring));
 						// Send the page
 						tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
 						tx_tcp->ipv4.checksum = 0;
