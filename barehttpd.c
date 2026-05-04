@@ -44,6 +44,8 @@ unsigned char *buffer;
 unsigned char tosend[ETH_FRAME_LEN];
 int running = 1, recv_packet_len;
 u16 EtherType = 0;
+u8 hitcount = 0;
+char hitstring[] = "   ";
 
 /* Global structs */
 #pragma pack(1)
@@ -111,7 +113,7 @@ typedef struct tcp_packet {
 } tcp_packet;
 
 /* Default HTTP page with HTTP headers */
-const char webpage[] =
+char webpage[] =
 "HTTP/1.0 200 OK\n"
 "Server: BareMetal\n"
 "Content-type: text/html\n"
@@ -128,6 +130,7 @@ const char webpage[] =
 "\t\t\t<li><b>Kernel</b> - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - an extremely minimal x86-64 exokernel that acts as a hardware abstraction layer. It is written in x86-64 Assembly, is 10240 bytes in size, and uses 4MiB of RAM.</li>\n"
 "\t\t\t<li><b>Application</b> - Minimal IP stack and web server written in C based - <a href=https://github.com/IanSeyler/barehttpd>barehttpd</a>. It contains just enough logic to handle ARP, DHCP, ICMP, as well as HTTP requests and responses.</li>\n"
 "\t\t</ul>\n"
+"\t\t<p>Connections:           </p>\n"
 "\t</body>\n"
 "</html>\n";
 u32 WEBPAGE_LEN = sizeof(webpage) - 1;
@@ -411,6 +414,11 @@ int main()
 					// If so, send the page, otherwise 404
 					if (send404 == 0)
 					{
+						// Add hitcount to webpage
+						hitcount++;
+						b_to_s(hitstring, hitcount);
+						memcpy((char*)webpage+WEBPAGE_LEN-32, hitstring, strlen(hitstring));
+						// Send the page
 						tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
 						tx_tcp->ipv4.checksum = 0;
 						tx_tcp->ipv4.checksum = checksum(&tosend[14], 20);
