@@ -401,15 +401,16 @@ int main()
 					// If so, send the page, otherwise 404
 					if (send404 == 0)
 					{
-						//overwrite the IP address in the webpage with the client's IP
 						char tstring[] = "   .   .   .   ";
 						char ipstring[16];
 						u8 ipval;
 
+						// Clear out old strings on page
 						memcpy((char*)webpage+641, tstring, strlen(tstring));
 						memcpy((char*)webpage+641+25, tstring, strlen(tstring));
 						memcpy((char*)webpage+851+27, tstring, 3);
 
+						// Get the client's IP address and update the webpage
 						memset(ipstring, 0, 16);
 						ipval = rx_tcp->ipv4.src_ip[0];
 						b_to_s(tempstring, ipval);
@@ -428,6 +429,7 @@ int main()
 						strcat(ipstring, tempstring);
 						memcpy((char*)webpage+641, ipstring, strlen(ipstring));
 
+						// Get the server's IP address and update the webpage
 						memset(ipstring, 0, 16);
 						ipval = rx_tcp->ipv4.dest_ip[0];
 						b_to_s(tempstring, ipval);
@@ -446,11 +448,11 @@ int main()
 						strcat(ipstring, tempstring);
 						memcpy((char*)webpage+641+25, ipstring, strlen(ipstring));
 
-
 						// Add hitcount to webpage
 						hitcount++;
 						b_to_s(tempstring, hitcount);
 						memcpy((char*)webpage+851+27, tempstring, strlen(tempstring));
+
 						// Send the page
 						tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
 						tx_tcp->ipv4.checksum = 0;
