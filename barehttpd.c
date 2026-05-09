@@ -118,21 +118,7 @@ char webpage[] =
 "Server: BareMetal\n"
 "Content-type: text/html\n"
 "\n"
-"<!DOCTYPE html>\n"
-"<html>\n"
-"\t<head>\n"
-"\t\t<title>Hello</title>\n"
-"\t</head>\n"
-"\t<body>\n"
-"\t\t<h1>Hello    .   .   .    !</h1>\n"
-"\t\t<p>This simple webpage is being hosted in a cloud VM running the following:</p>\n"
-"\t\t<ul>\n"
-"\t\t\t<li><b>Kernel</b> - <a href=https://github.com/ReturnInfinity/BareMetal>BareMetal</a> - an extremely minimal x86-64 exokernel that acts as a hardware abstraction layer. It is written in x86-64 Assembly, is 10240 bytes in size, and uses 4MiB of RAM.</li>\n"
-"\t\t\t<li><b>Application</b> - Minimal IP stack and web server written in C based - <a href=https://github.com/IanSeyler/barehttpd>barehttpd</a>. It contains just enough logic to handle ARP, DHCP, ICMP, as well as HTTP requests and responses.</li>\n"
-"\t\t</ul>\n"
-"\t\t<p>Connections:           </p>\n"
-"\t</body>\n"
-"</html>\n";
+"<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>BareMetal OS Demo</title><style> body { background: #000; color: #0f0; font-family: monospace; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; padding: 20px;} h1 { font-size: 10vw; margin: 0; color: #fff; text-shadow: 0 0 20px #0f0; } p { font-size: 1.2rem; max-width: 600px; line-height: 1.5; color: #888;} span { color: #0f0;}</style></head><body><h1>Hello    .   .   .   </h1><p>This is a demonstration of the <span>headless multi-agent system orchestration</span> using the <a href=\"https://returninfinity.com\" target=null> BareMetal kernel</a>.</p><small>Hit count:    </small></body></html>\n";
 u32 WEBPAGE_LEN = sizeof(webpage) - 1;
 const char webpage404[] =
 "HTTP/1.0 404 Not Found\n"
@@ -414,23 +400,26 @@ int main()
 					// If so, send the page, otherwise 404
 					if (send404 == 0)
 					{
+						//overwrite the IP address in the webpage with the client's IP
+						char tstring[] = "   .   .   .   ";
+						memcpy((char*)webpage+637, tstring, strlen(tstring));
 						u8 ipval;
 						ipval = rx_tcp->ipv4.src_ip[0];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+142, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+637, tempstring, strlen(tempstring));
 						ipval = rx_tcp->ipv4.src_ip[1];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+146, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+641, tempstring, strlen(tempstring));
 						ipval = rx_tcp->ipv4.src_ip[2];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+150, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+645, tempstring, strlen(tempstring));
 						ipval = rx_tcp->ipv4.src_ip[3];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+154, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+649, tempstring, strlen(tempstring));
 						// Add hitcount to webpage
 						hitcount++;
 						b_to_s(tempstring, hitcount);
-						memcpy((char*)webpage+WEBPAGE_LEN-32, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+849, tempstring, strlen(tempstring));
 						// Send the page
 						tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
 						tx_tcp->ipv4.checksum = 0;
