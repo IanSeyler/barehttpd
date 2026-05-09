@@ -118,7 +118,7 @@ char webpage[] =
 "Server: BareMetal\n"
 "Content-type: text/html\n"
 "\n"
-"<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>BareMetal OS Demo</title><style> body { background: #000; color: #0f0; font-family: monospace; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; padding: 20px;} h1 { font-size: 10vw; margin: 0; color: #fff; text-shadow: 0 0 20px #0f0; } p { font-size: 1.2rem; max-width: 600px; line-height: 1.5; color: #888;} span { color: #0f0;}</style></head><body><h1>Hello    .   .   .   </h1><p>This is a demonstration of the <span>headless multi-agent system orchestration</span> using the <a href=\"https://returninfinity.com\" target=null> BareMetal kernel</a>.</p><small>Hit count:    </small></body></html>\n";
+"<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>BareMetal OS Demo</title><style> body { background: #000; color: #fff; font-family: monospace; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; padding: 20px;} h1 { font-size: 10vw; margin: 0; text-shadow: 0 0 20px var(--c); } p { font-size: 1.2rem; max-width: 600px; line-height: 1.5; color: #888;} span { color: var(--c);}</style></head><body><h1 id=\"h\">Hello    .   .   .   </h1><p>This is a demonstration of the <span>headless multi-agent system orchestration</span> using the <a href=\"https://returninfinity.com\" target=null> BareMetal kernel</a>.</p><small>Hit count:    </small><script>const h = Date.now()%360;document.body.style.setProperty('--c', `hsl(${h}, 100%, 50%)`);</script></body></html>\n";
 u32 WEBPAGE_LEN = sizeof(webpage) - 1;
 const char webpage404[] =
 "HTTP/1.0 404 Not Found\n"
@@ -402,24 +402,24 @@ int main()
 					{
 						//overwrite the IP address in the webpage with the client's IP
 						char tstring[] = "   .   .   .   ";
-						memcpy((char*)webpage+637, tstring, strlen(tstring));
+						memcpy((char*)webpage+639, tstring, strlen(tstring));
 						u8 ipval;
 						ipval = rx_tcp->ipv4.src_ip[0];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+637, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+639, tempstring, strlen(tempstring));
 						ipval = rx_tcp->ipv4.src_ip[1];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+641, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+643, tempstring, strlen(tempstring));
 						ipval = rx_tcp->ipv4.src_ip[2];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+645, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+647, tempstring, strlen(tempstring));
 						ipval = rx_tcp->ipv4.src_ip[3];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+649, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+651, tempstring, strlen(tempstring));
 						// Add hitcount to webpage
 						hitcount++;
 						b_to_s(tempstring, hitcount);
-						memcpy((char*)webpage+849, tempstring, strlen(tempstring));
+						memcpy((char*)webpage+851, tempstring, strlen(tempstring));
 						// Send the page
 						tx_tcp->ipv4.total_length = swap16(52+WEBPAGE_LEN);
 						tx_tcp->ipv4.checksum = 0;
