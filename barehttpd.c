@@ -144,6 +144,7 @@ int net_init();
 void* memset(void* s, int c, int n);
 void* memcpy(void* d, const void* s, int n);
 int strlen(const char* s);
+int strcat(char* dest, const char* src);
 char* b_to_s(char* buffer, unsigned char byte);
 void display_ip(u8* ip);
 void halt();
@@ -402,34 +403,50 @@ int main()
 					{
 						//overwrite the IP address in the webpage with the client's IP
 						char tstring[] = "   .   .   .   ";
+						char ipstring[16];
+						u8 ipval;
+
 						memcpy((char*)webpage+641, tstring, strlen(tstring));
 						memcpy((char*)webpage+641+25, tstring, strlen(tstring));
 						memcpy((char*)webpage+851+27, tstring, 3);
-						u8 ipval;
+
+						memset(ipstring, 0, 16);
 						ipval = rx_tcp->ipv4.src_ip[0];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+641, tempstring, strlen(tempstring));
+						strcat(ipstring, tempstring);
+						strcat(ipstring, ".");
 						ipval = rx_tcp->ipv4.src_ip[1];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+645, tempstring, strlen(tempstring));
+						strcat(ipstring, tempstring);
+						strcat(ipstring, ".");
 						ipval = rx_tcp->ipv4.src_ip[2];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+649, tempstring, strlen(tempstring));
+						strcat(ipstring, tempstring);
+						strcat(ipstring, ".");
 						ipval = rx_tcp->ipv4.src_ip[3];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+653, tempstring, strlen(tempstring));
+						strcat(ipstring, tempstring);
+						memcpy((char*)webpage+641, ipstring, strlen(ipstring));
+
+						memset(ipstring, 0, 16);
 						ipval = rx_tcp->ipv4.dest_ip[0];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+641+25, tempstring, strlen(tempstring));
+						strcat(ipstring, tempstring);
+						strcat(ipstring, ".");
 						ipval = rx_tcp->ipv4.dest_ip[1];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+645+25, tempstring, strlen(tempstring));
+						strcat(ipstring, tempstring);
+						strcat(ipstring, ".");
 						ipval = rx_tcp->ipv4.dest_ip[2];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+649+25, tempstring, strlen(tempstring));
+						strcat(ipstring, tempstring);
+						strcat(ipstring, ".");
 						ipval = rx_tcp->ipv4.dest_ip[3];
 						b_to_s(tempstring, ipval);
-						memcpy((char*)webpage+653+25, tempstring, strlen(tempstring));
+						strcat(ipstring, tempstring);
+						memcpy((char*)webpage+641+25, ipstring, strlen(ipstring));
+
+
 						// Add hitcount to webpage
 						hitcount++;
 						b_to_s(tempstring, hitcount);
@@ -849,6 +866,21 @@ int strlen(const char* s)
 	return r;
 }
 
+
+int strcat(char* dest, const char* src)
+{
+	int len = strlen(dest);
+	int i;
+
+	for (i = 0; src[i] != 0; i++)
+	{
+		dest[len + i] = src[i];
+	}
+
+	dest[len + i] = 0;
+
+	return len + i;
+}
 
 // Convert a byte value to a string
 char* b_to_s(char* buffer, unsigned char byte)
