@@ -118,7 +118,7 @@ char webpage[] =
 "Server: BareMetal\n"
 "Content-type: text/html\n"
 "\n"
-"<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>BareMetal OS Demo</title><style> body { background: #000; color: #fff; font-family: monospace; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; padding: 20px;} h1 { font-size: 10vw; margin: 0; text-shadow: 0 0 20px var(--c); } p { font-size: 1.2rem; max-width: 600px; line-height: 1.5; color: #888;} span { color: var(--c);}</style></head><body><h1 id=\"h\">You are    .   .   .    and I am    .   .   .   </h1><p>This is a demonstration of the <span>headless multi-agent system orchestration</span> using the <a href=\"https://returninfinity.com\" target=null> BareMetal kernel</a>.</p><small>Hit count:    </small><script>const h = Date.now()%360;document.body.style.setProperty('--c', `hsl(${h}, 100%, 50%)`);</script></body></html>\n";
+"<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>BareMetal OS Demo</title><style> body { background: #000; color: #fff; font-family: monospace; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; padding: 20px;} h1 { font-size: 10vw; margin: 0; text-shadow: 0 0 20px var(--c); } p { font-size: 1.2rem; max-width: 600px; line-height: 1.5; color: #888;} span { color: var(--c);}</style></head><body><h1 id=\"h\">You are                 and I am                </h1><p>This is a demonstration of the <span>headless multi-agent system orchestration</span> using the <a href=\"https://returninfinity.com\" target=null> BareMetal kernel</a>.</p><small>Hit count:    </small><script>const h = Date.now()%360;document.body.style.setProperty('--c', `hsl(${h}, 100%, 50%)`);</script></body></html>\n";
 u32 WEBPAGE_LEN = sizeof(webpage) - 1;
 const char webpage404[] =
 "HTTP/1.0 404 Not Found\n"
@@ -135,7 +135,7 @@ const char webpage404[] =
 "\t</body>\n"
 "</html>\n";
 u32 WEBPAGE404_LEN = sizeof(webpage404) - 1;
-const char version_string[] = "barehttpd v0.9.4 (2026 05 04)\n";
+const char version_string[] = "barehttpd v0.9.5 (2026 06 05)\n";
 
 /* Global functions */
 u16 checksum(u8* data, u16 bytes);
@@ -401,7 +401,7 @@ int main()
 					// If so, send the page, otherwise 404
 					if (send404 == 0)
 					{
-						char tstring[] = "   .   .   .   ";
+						char tstring[] = "               ";
 						char ipstring[16];
 						u8 ipval;
 
@@ -648,10 +648,11 @@ int net_init()
 	tosend[43] = 0x01;
 	tosend[44] = 0x06;
 	tosend[45] = 0x00;
-	tosend[46] = 0x35;
-	tosend[47] = 0xBA;
-	tosend[48] = 0x16;
-	tosend[49] = 0x81;
+	// 4-byte transaction ID
+	tosend[46] = src_MAC[2];//0x35;
+	tosend[47] = src_MAC[3];//0xBA;
+	tosend[48] = src_MAC[4];//0x16;
+	tosend[49] = src_MAC[5];//0x81;
 	memcpy(&tosend[70], src_MAC, 6);
 	// DHCP magic value
 	tosend[278] = 0x63;
