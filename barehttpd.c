@@ -146,6 +146,7 @@ void* memcpy(void* d, const void* s, int n);
 int strlen(const char* s);
 int strcat(char* dest, const char* src);
 char* b_to_s(char* buffer, unsigned char byte);
+char* b_to_hex(char* buffer, unsigned char byte);
 void display_ip(u8* ip);
 void halt();
 void helper_ethernet(eth_header* tx, eth_header* rx, u16 ethertype);
@@ -611,6 +612,7 @@ u16 checksum_tcp(u8* data, u16 bytes, u16 protocol, u16 length)
 /* net_init */
 int net_init()
 {
+    char tstring[] = "xxx";
 	/* Populate the MAC Address */
 	/* Pulls the MAC from the OS sys var table... so gross */
 	char * os_MAC = (void*)0x11A008; // Address of the MAC for interface 0
@@ -649,10 +651,10 @@ int net_init()
 	tosend[44] = 0x06;
 	tosend[45] = 0x00;
 	// 4-byte transaction ID
-	tosend[46] = src_MAC[2];//0x35;
-	tosend[47] = src_MAC[3];//0xBA;
-	tosend[48] = src_MAC[4];//0x16;
-	tosend[49] = src_MAC[5];//0x81;
+	tosend[46] = src_MAC[2];
+	tosend[47] = src_MAC[3];
+	tosend[48] = src_MAC[4];
+	tosend[49] = src_MAC[5];
 	memcpy(&tosend[70], src_MAC, 6);
 	// DHCP magic value
 	tosend[278] = 0x63;
@@ -695,10 +697,12 @@ int net_init()
 	tosend[318] = 0x06; // Length
 	tosend[319] = 'b';
 	tosend[320] = 'm';
-	tosend[321] = 'e';
-	tosend[322] = 't';
-	tosend[323] = 'a';
-	tosend[324] = 'l';
+	b_to_hex(tstring, src_MAC[4]);
+	tosend[321] = tstring[0];
+	tosend[322] = tstring[1];
+	b_to_hex(tstring, src_MAC[5]);
+	tosend[323] = tstring[0];
+	tosend[324] = tstring[1];
 	tosend[325] = 0xFF; // End
 
 	// Send the reply
@@ -785,10 +789,12 @@ int net_init()
 		tosend[330] = 0x06; // Length
 		tosend[331] = 'b';
 		tosend[332] = 'm';
-		tosend[333] = 'e';
-		tosend[334] = 't';
-		tosend[335] = 'a';
-		tosend[336] = 'l';
+		b_to_hex(tstring, src_MAC[4]);
+		tosend[333] = tstring[0];
+		tosend[334] = tstring[1];
+		b_to_hex(tstring, src_MAC[5]);
+		tosend[335] = tstring[0];
+		tosend[336] = tstring[1];
 		tosend[337] = 0xFF; // End
 
 		// Send the reply
@@ -938,6 +944,17 @@ char* b_to_s(char* buffer, unsigned char byte)
 }
 
 
+// Convert a byte value to a two-character uppercase hex string
+char* b_to_hex(char* buffer, unsigned char byte)
+{
+	const char hex[] = "0123456789ABCDEF";
+	buffer[0] = hex[(byte >> 4) & 0xF];
+	buffer[1] = hex[byte & 0xF];
+	buffer[2] = '\0';
+	return buffer;
+}
+
+
 void display_ip(u8* ip)
 {
 	char tstring[] = "xxx";
@@ -978,4 +995,5 @@ void helper_ipv4(ipv4_packet* tx, ipv4_packet* rx)
 	memcpy(tx->src_ip, rx->dest_ip, 4);
 	memcpy(tx->dest_ip, rx->src_ip, 4);
 }
+
 /* EOF */
