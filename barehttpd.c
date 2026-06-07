@@ -135,7 +135,7 @@ const char webpage404[] =
 "\t</body>\n"
 "</html>\n";
 u32 WEBPAGE404_LEN = sizeof(webpage404) - 1;
-const char version_string[] = "barehttpd v0.9.5 (2026 06 05)\n";
+const char version_string[] = "barehttpd v0.9.5 (2026 06 07)\n";
 
 /* Global functions */
 u16 checksum(u8* data, u16 bytes);
@@ -612,7 +612,7 @@ u16 checksum_tcp(u8* data, u16 bytes, u16 protocol, u16 length)
 /* net_init */
 int net_init()
 {
-    char tstring[] = "xxx";
+	char tstring[] = "xxx";
 	/* Populate the MAC Address */
 	/* Pulls the MAC from the OS sys var table... so gross */
 	char * os_MAC = (void*)0x11A008; // Address of the MAC for interface 0
