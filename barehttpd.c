@@ -710,6 +710,14 @@ int net_init()
 	{
 		recv_packet_len = b_net_rx((void**)&buffer, INTERFACE);
 		eth_header* rx = (eth_header*)buffer;
+
+		// If there was no data then halt until an interrupt occurs
+		if (recv_packet_len == 0)
+		{
+			halt();
+			continue;
+		}
+
 //		#ifdef DEBUG
 //		if (recv_packet_len > 0)
 //		{
@@ -793,6 +801,14 @@ int net_init()
 	{
 		recv_packet_len = b_net_rx((void**)&buffer, INTERFACE);
 		eth_header* rx = (eth_header*)buffer;
+
+		// If there was no data then halt until an interrupt occurs
+		if (recv_packet_len == 0)
+		{
+			halt();
+			continue;
+		}
+
 		if (swap16(rx->type) == ETHERTYPE_IPV4)
 		{
 			udp_packet* rx_udp = (udp_packet*)buffer;
